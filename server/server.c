@@ -96,7 +96,7 @@ void *wormTask(void *targs)
   {
     int t;
     int tt = read(sockfd, &t, sizeof(int));
-    printf("%d %d\n");
+    printf("%d %d\n", t, tt);
   }
 }
 
@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
 
   char players = 0;
   struct PlayerState playersState[MAX_PLAYERS];
-  bzero(&players, MAX_PLAYERS * sizeof(MAX_PLAYERS));
+  bzero(&playersState, sizeof(playersState));
   int sockfd = setUpServer(argv[1]);
   char openForNewPlayers = 1;
 
@@ -132,11 +132,11 @@ int main(int argc, char *argv[])
         {
           pthread_t newWormThread;
           struct WormThreadArgs *newWormThreadArgs;
-          printf("Prepairing args! %d\n", newWormThreadArgs);
-          //newWormThreadArgs->sockfd = newsockfd;
+          printf("Prepairing args!\n");
+          newWormThreadArgs->sockfd = newsockfd;
           //newWormThreadArgs->ind = i;
           printf("I will make new thread!\n");
-          //pthread_create(&newWormThread, NULL, wormTask, (void *)newWormThreadArgs);
+          pthread_create(&newWormThread, NULL, wormTask, (void *)newWormThreadArgs);
           break;
         }
       }
