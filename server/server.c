@@ -91,12 +91,14 @@ void *wormTask(void *targs)
   struct WormThreadArgs *args = (struct WormThreadArgs *)targs;
   int sockfd = args->sockfd;
   char ind = args->ind;
+  printf("%d %d\n", sockfd, ind);
   write(sockfd, &ind, sizeof(char));
   while (1)
   {
     int t;
     int tt = read(sockfd, &t, sizeof(int));
     printf("%d %d\n", t, tt);
+    printf("%d %d\n", sockfd, ind);
   }
 }
 
@@ -131,10 +133,9 @@ int main(int argc, char *argv[])
         if (!playersState[i].connected)
         {
           pthread_t newWormThread;
-          struct WormThreadArgs *newWormThreadArgs;
-          printf("Prepairing args!\n");
+          struct WormThreadArgs *newWormThreadArgs = malloc(sizeof(struct WormThreadArgs));
           newWormThreadArgs->sockfd = newsockfd;
-          //newWormThreadArgs->ind = i;
+          newWormThreadArgs->ind = i;
           printf("I will make new thread!\n");
           pthread_create(&newWormThread, NULL, wormTask, (void *)newWormThreadArgs);
           break;
