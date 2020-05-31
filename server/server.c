@@ -153,8 +153,8 @@ int main(int argc, char *argv[])
           break;
         }
       }
-
-      char allPlayersAreReady = 0;
+    }
+    char allPlayersAreReady = 0;
       for (int i = 0; i < MAX_PLAYERS; i++)
       {
         if (playersState[i].connected)
@@ -175,8 +175,6 @@ int main(int argc, char *argv[])
         break;
       }
       sleep(100);
-    }
-    sleep(1);
   }
   printf("All players are ready!\n");
 }
