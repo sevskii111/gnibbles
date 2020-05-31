@@ -12,17 +12,28 @@
 #include <unistd.h>
 #include <limits.h>
 #include <stdlib.h>
+#include "LTexture.h"
+#include "../shared.h"
 
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 640;
 const int MAX_COMMAND_LEN = 128;
 
+struct GlobalState
+{
+    char gamePhase;
+    char playersConnectd;
+    char playersReady;
+};
+
 bool init();
 void close();
 
-SDL_Texture *loadTexture(std::string path);
 SDL_Window *gWindow = NULL;
 SDL_Renderer *gRenderer = NULL;
+TTF_Font *gFont;
+LTexture *gTextTexture;
+SDL_Color textColor = {0, 0, 0};
 
 bool init()
 {
@@ -71,6 +82,22 @@ bool init()
     return success;
 }
 
+bool loadMedia()
+{
+    //Loading success flag
+    bool success = true;
+
+    //Open the font
+    gFont = TTF_OpenFont("font.ttf", 28);
+    if (gFont == NULL)
+    {
+        printf("Failed to load lazy font! SDL_ttf Error: %s\n", TTF_GetError());
+        success = false;
+    }
+
+    return success;
+}
+
 void close()
 {
     //Destroy window
@@ -84,50 +111,15 @@ void close()
     SDL_Quit();
 }
 
-SDL_Texture *loadTexture(std::string path)
-{
-    //The final texture
-    SDL_Texture *newTexture = NULL;
-
-    //Load image at specified path
-    SDL_Surface *loadedSurface = IMG_Load(path.c_str());
-    if (loadedSurface == NULL)
-    {
-        printf("Unable to load image %s! SDL_image Error: %s\n", path.c_str(), IMG_GetError());
-    }
-    else
-    {
-        newTexture = SDL_CreateTextureFromSurface(gRenderer, loadedSurface);
-        if (newTexture == NULL)
-        {
-            printf("Unable to create texture from %s! SDL Error: %s\n", path.c_str(), SDL_GetError());
-        }
-
-        SDL_FreeSurface(loadedSurface);
-    }
-
-    return newTexture;
-}
-
-enum KeyPressSurfaces
-{
-    KEY_PRESS_SURFACE_DEFAULT,
-    KEY_PRESS_SURFACE_UP,
-    KEY_PRESS_SURFACE_DOWN,
-    KEY_PRESS_SURFACE_LEFT,
-    KEY_PRESS_SURFACE_RIGHT,
-    KEY_PRESS_SURFACE_TOTAL
-};
-SDL_Surface *gKeyPressSurfaces[KEY_PRESS_SURFACE_TOTAL];
-
 int main(int argc, char *args[])
 {
-    if (!init())
+    if (!init() || !loadMedia())
     {
         printf("Failed to initialize!\n");
     }
     else
     {
+        gTextTexture->init(gRenderer, gFont);
         struct sockaddr_in servaddr;
         int sockfd = socket(PF_INET, SOCK_STREAM, 0);
 
@@ -156,6 +148,9 @@ int main(int argc, char *args[])
         SDL_Event e;
 
         bool ready = false;
+
+        GlobalState *gameState = new GlobalState();
+        gameState->gamePhase = WAITING_FOR_PLAYERS;
 
         //While application is running
         while (!quit)
@@ -189,17 +184,27 @@ int main(int argc, char *args[])
             SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
             SDL_RenderClear(gRenderer);
 
-            SDL_Rect fillRect = {SCREEN_WIDTH / 4, SCREEN_HEIGHT / 4, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2};
-            if (ready)
+            if (gameState->gamePhase == WAITING_FOR_PLAYERS)
             {
-                SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
+                int n = write(sockfd, &ready, sizeof(ready));
+                n = read(sockfd, gameState, sizeof(gameState));
+                printf("Curr state:\n%d players\n%d ready\n%d gamePhase\n", gameState->playersConnectd, gameState->playersReady, gameState->gamePhase);
+                SDL_Rect fillRect = {SCREEN_WIDTH / 4, SCREEN_HEIGHT / 4, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2};
+                if (ready)
+                {
+                    SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
+                }
+                else
+                {
+                    SDL_SetRenderDrawColor(gRenderer, 0xFF, 0x00, 0x00, 0xFF);
+                }
+
+                SDL_RenderFillRect(gRenderer, &fillRect);
             }
             else
             {
-                SDL_SetRenderDrawColor(gRenderer, 0xFF, 0x00, 0x00, 0xFF);
+                printf("WTF\n");
             }
-
-            SDL_RenderFillRect(gRenderer, &fillRect);
 
             //Update screen
             SDL_RenderPresent(gRenderer);

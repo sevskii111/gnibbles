@@ -7,9 +7,9 @@ CC = g++
 COMPILER_FLAGS = 
 
 ifeq ($(OS), Darwin) #MacOs
-	LINKER_FLAGS = -I include -L lib -l SDL2-2.0.0 -l SDL2_image-2.0.0
+	LINKER_FLAGS = -I include -L lib -l SDL2-2.0.0 -l SDL2_image-2.0.0 -l SDL2-TTF-2.0.0
 else
-	LINKER_FLAGS = -lSDL2 -lSDL2_image
+	LINKER_FLAGS = -lSDL2 -lSDL2_image -lSDL2_TTF
 endif
 
 OBJ_NAME = client
