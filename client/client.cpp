@@ -13,6 +13,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include "LTexture.h"
+#include "colors.h"
 #include "../shared.h"
 
 const int SCREEN_WIDTH = 640;
@@ -22,7 +23,7 @@ const int MAX_COMMAND_LEN = 128;
 struct GlobalState
 {
     char gamePhase;
-    char playersConnectd;
+    char playersConnected;
     char playersReady;
 };
 
@@ -31,9 +32,8 @@ void close();
 
 SDL_Window *gWindow = NULL;
 SDL_Renderer *gRenderer = NULL;
-TTF_Font *gFont;
+TTF_Font *gBigFont, *gMidFont, *gSmallFont;
 LTexture *gTextTexture;
-SDL_Color textColor = {0, 0, 0};
 
 bool init()
 {
@@ -88,8 +88,10 @@ bool loadMedia()
     bool success = true;
 
     //Open the font
-    gFont = TTF_OpenFont("font.ttf", 28);
-    if (gFont == NULL)
+    gSmallFont = TTF_OpenFont("font.ttf", 24);
+    gMidFont = TTF_OpenFont("font.ttf", 36);
+    gBigFont = TTF_OpenFont("font.ttf", 60);
+    if (gSmallFont == NULL || gMidFont == NULL || gBigFont == NULL)
     {
         printf("Failed to load lazy font! SDL_ttf Error: %s\n", TTF_GetError());
         success = false;
@@ -113,14 +115,14 @@ void close()
 
 int main(int argc, char *args[])
 {
-    if (!init() || !loadMedia())
+    if (!init() || TTF_Init() || !loadMedia())
     {
         printf("Failed to initialize!\n");
     }
     else
     {
         gTextTexture = new LTexture();
-        gTextTexture->init(gRenderer, gFont);
+        gTextTexture->init(gRenderer);
         struct sockaddr_in servaddr;
         int sockfd = socket(PF_INET, SOCK_STREAM, 0);
 
@@ -182,25 +184,52 @@ int main(int argc, char *args[])
                 }
             }
 
-            SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
+            SDL_SetRenderDrawColor(gRenderer, DARK);
             SDL_RenderClear(gRenderer);
 
             if (gameState->gamePhase == WAITING_FOR_PLAYERS)
             {
                 int n = write(sockfd, &ready, sizeof(ready));
                 n = read(sockfd, gameState, sizeof(gameState));
-                printf("Curr state:\n%d players\n%d ready\n%d gamePhase\n", gameState->playersConnectd, gameState->playersReady, gameState->gamePhase);
-                SDL_Rect fillRect = {SCREEN_WIDTH / 4, SCREEN_HEIGHT / 4, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2};
+
+                // SDL_Rect fillRect = {SCREEN_WIDTH / 4, SCREEN_HEIGHT / 4, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2};
+                // if (ready)
+                // {
+                //     SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
+                // }
+                // else
+                // {
+                //     SDL_SetRenderDrawColor(gRenderer, 0xFF, 0x00, 0x00, 0xFF);
+                // }
+
+                //SDL_RenderFillRect(gRenderer, &fillRect);
+                char textBuff[128];
+                sprintf(textBuff, "%d of %d", gameState->playersReady, gameState->playersConnected);
+                gTextTexture->loadFromRenderedText(textBuff, gBigFont, TWHITE);
+                gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, (SCREEN_HEIGHT - gTextTexture->getHeight() * 2) / 2);
+
+                sprintf(textBuff, "players are ready");
+                gTextTexture->loadFromRenderedText(textBuff, gMidFont, TWHITE);
+                gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, (SCREEN_HEIGHT) / 2);
+
+                int textOffset = 5;
+                int textYPos = (SCREEN_HEIGHT + gTextTexture->getHeight()) / 2 + gTextTexture->getHeight() + textOffset;
                 if (ready)
                 {
-                    SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
+                    sprintf(textBuff, "You are ready");
+                    gTextTexture->loadFromRenderedText(textBuff, gMidFont, TGREEN);
+                    gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, textYPos);
                 }
                 else
                 {
-                    SDL_SetRenderDrawColor(gRenderer, 0xFF, 0x00, 0x00, 0xFF);
+                    sprintf(textBuff, "You are not ready");
+                    gTextTexture->loadFromRenderedText(textBuff, gMidFont, TRED);
+                    gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, textYPos);
                 }
 
-                SDL_RenderFillRect(gRenderer, &fillRect);
+                sprintf(textBuff, "Press space to change");
+                gTextTexture->loadFromRenderedText(textBuff, gSmallFont, TWHITE);
+                gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, textYPos + gTextTexture->getHeight() + textOffset);
             }
             else
             {

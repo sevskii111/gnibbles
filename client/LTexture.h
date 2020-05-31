@@ -14,7 +14,7 @@ public:
     ~LTexture();
 
     //Creates image from font string
-    bool loadFromRenderedText(std::string textureText, SDL_Color textColor);
+    bool loadFromRenderedText(std::string textureText, TTF_Font *font, SDL_Color textColor);
 
     //Deallocates texture
     void free();
@@ -35,7 +35,7 @@ public:
     int getWidth();
     int getHeight();
 
-    void init(SDL_Renderer *renderer, TTF_Font *gFont);
+    void init(SDL_Renderer *renderer);
 
 private:
     //The actual hardware texture
@@ -46,5 +46,4 @@ private:
     int mHeight;
 
     SDL_Renderer *gRenderer;
-    TTF_Font *gFont;
 };
