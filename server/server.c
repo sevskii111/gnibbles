@@ -10,9 +10,15 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <fcntl.h>
+#include "../shared.h"
 
 #define MAP_SIZE 20
 #define MAX_PLAYERS 8
+
+struct GlobalState
+{
+  char gamePhase;
+};
 
 struct PlayerState
 {
@@ -85,6 +91,7 @@ struct WormThreadArgs
 {
   int sockfd;
   struct PlayeState *state;
+  struct GlobalState *globalState;
 };
 
 void *wormTask(void *targs)
@@ -92,6 +99,7 @@ void *wormTask(void *targs)
   struct WormThreadArgs *args = (struct WormThreadArgs *)targs;
   int sockfd = args->sockfd;
   struct PlayerState *myState = args->state;
+  struct GlobalState *globalState = args->globalState;
   free(targs);
   myState->connected = 1;
   myState->ready = 0;
@@ -106,6 +114,10 @@ void *wormTask(void *targs)
   printf("New player connected(%d)\n", myState->ind);
   while (1)
   {
+    write(sockfd, globalState->gamePhase, sizeof(globalState->gamePhase));
+
+    if (globalState->gamePhase != WAITING_FOR_PLAYERS) break;
+
     char status;
     int n = read(sockfd, &status, sizeof(status));
     if (n == 0)
@@ -123,6 +135,7 @@ void *wormTask(void *targs)
       myState->ready = 0;
     }
   }
+  
 }
 
 int main(int argc, char *argv[])
@@ -133,7 +146,8 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  char players = 0;
+  struct GlobalState* globalState = malloc(sizeof(globalState));
+  globalState->gamePhase = WAITING_FOR_PLAYERS;
   struct PlayerState playersState[MAX_PLAYERS];
   bzero(&playersState, sizeof(playersState));
   for (int i = 0; i < MAX_PLAYERS; i++)
@@ -160,9 +174,10 @@ int main(int argc, char *argv[])
         if (!playersState[i].connected)
         {
           pthread_t newWormThread;
-          struct WormThreadArgs *newWormThreadArgs = malloc(sizeof(struct WormThreadArgs));
+          struct WormThreadArgs *newWormThreadArgs = malloc(sizeof(newWormThreadArgs));
           newWormThreadArgs->sockfd = newsockfd;
-          newWormThreadArgs->state = (struct PlayerState *)(playersState + i);
+          newWormThreadArgs->state = (playersState + i);
+          newWormThreadArgs->globalState = globalState;
           pthread_create(&newWormThread, NULL, wormTask, (void *)newWormThreadArgs);
           break;
         }
