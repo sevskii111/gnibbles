@@ -8,13 +8,13 @@
       "name": "Build and debug server",
       "type": "cppdbg",
       "request": "launch",
-      "program": "${fileDirname}/${fileBasenameNoExtension}",
+      "program": "${workspaceRoot}/server/server",
       "args": ["3000"],
       "stopAtEntry": false,
       "cwd": "${workspaceFolder}",
       "environment": [],
       "externalConsole": false,
-      "MIMode": "gdb",
+      "MIMode": "lldb",
       "setupCommands": [
         {
           "description": "Enable pretty-printing for gdb",
@@ -22,8 +22,27 @@
           "ignoreFailures": true
         }
       ],
-      "preLaunchTask": "build server",
-      "miDebuggerPath": "/usr/bin/gdb"
+      "preLaunchTask": "build server"
+    },
+    {
+      "name": "Build and debug client",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceRoot}/client/client",
+      "args": ["192.168.1.140:3000"],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "MIMode": "lldb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "preLaunchTask": "build client"
     }
   ]
 }
