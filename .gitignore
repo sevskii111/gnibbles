@@ -1,2 +1,8 @@
-server/server
-client/client
+server/*
+!server/Makefile
+!server/server.c
+client/*
+!client/Makefile
+!client/client.cpp
+!client/include
+!client/lib

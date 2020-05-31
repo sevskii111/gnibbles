@@ -155,7 +155,7 @@ int main(int argc, char *args[])
         //Event handler
         SDL_Event e;
 
-        bool drawRect = false;
+        bool ready = false;
 
         //While application is running
         while (!quit)
@@ -178,8 +178,8 @@ int main(int argc, char *args[])
                     case SDLK_q:
                         quit = true;
                         break;
-                    case SDLK_UP:
-                        drawRect = true;
+                    case SDLK_SPACE:
+                        ready = !ready;
                     default:
                         break;
                     }
@@ -189,28 +189,17 @@ int main(int argc, char *args[])
             SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
             SDL_RenderClear(gRenderer);
 
-            if (drawRect)
+            SDL_Rect fillRect = {SCREEN_WIDTH / 4, SCREEN_HEIGHT / 4, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2};
+            if (ready)
             {
-                SDL_Rect fillRect = {SCREEN_WIDTH / 4, SCREEN_HEIGHT / 4, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2};
+                SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
+            }
+            else
+            {
                 SDL_SetRenderDrawColor(gRenderer, 0xFF, 0x00, 0x00, 0xFF);
-                SDL_RenderFillRect(gRenderer, &fillRect);
             }
 
-            //Render green outlined quad
-            SDL_Rect outlineRect = {SCREEN_WIDTH / 6, SCREEN_HEIGHT / 6, SCREEN_WIDTH * 2 / 3, SCREEN_HEIGHT * 2 / 3};
-            SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
-            SDL_RenderDrawRect(gRenderer, &outlineRect);
-
-            //Draw blue horizontal line
-            SDL_SetRenderDrawColor(gRenderer, 0x00, 0x00, 0xFF, 0xFF);
-            SDL_RenderDrawLine(gRenderer, 0, SCREEN_HEIGHT / 2, SCREEN_WIDTH, SCREEN_HEIGHT / 2);
-
-            //Draw vertical line of yellow dots
-            SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0x00, 0xFF);
-            for (int i = 0; i < SCREEN_HEIGHT; i += 4)
-            {
-                SDL_RenderDrawPoint(gRenderer, SCREEN_WIDTH / 2, i);
-            }
+            SDL_RenderFillRect(gRenderer, &fillRect);
 
             //Update screen
             SDL_RenderPresent(gRenderer);
