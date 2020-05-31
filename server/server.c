@@ -11,6 +11,7 @@
 #include <pthread.h>
 #include <fcntl.h>
 #include "../shared.h"
+#include "sem.c"
 
 #define MAP_SIZE 20
 #define MAX_PLAYERS 8
@@ -18,6 +19,8 @@
 struct GlobalState
 {
   char gamePhase;
+  char playersConnected;
+  char playersReady;
 };
 
 struct PlayerState
@@ -90,6 +93,7 @@ int setUpServer(char *port)
 struct WormThreadArgs
 {
   int sockfd;
+  int semId;
   struct PlayeState *state;
   struct GlobalState *globalState;
 };
@@ -98,15 +102,20 @@ void *wormTask(void *targs)
 {
   struct WormThreadArgs *args = (struct WormThreadArgs *)targs;
   int sockfd = args->sockfd;
+  int semId = args->semId;
   struct PlayerState *myState = args->state;
   struct GlobalState *globalState = args->globalState;
   free(targs);
+  lockSem(semId, 1 + myState->ind);
   myState->connected = 1;
   myState->ready = 0;
+  unlockSem(semId, 1 + myState->ind);
   int s = write(sockfd, &myState->ind, sizeof(myState->ind));
   if (s == 0)
   {
+    lockSem(semId, 1 + myState->ind);
     myState->connected = 0;
+    unlockSem(semId, 1 + myState->ind);
     close(sockfd);
     return NULL;
   }
@@ -114,18 +123,19 @@ void *wormTask(void *targs)
   printf("New player connected(%d)\n", myState->ind);
   while (1)
   {
-    write(sockfd, globalState->gamePhase, sizeof(globalState->gamePhase));
-
-    if (globalState->gamePhase != WAITING_FOR_PLAYERS) break;
-
+    printf("Serving request\n");
     char status;
     int n = read(sockfd, &status, sizeof(status));
     if (n == 0)
     {
+      lockSem(semId, 1 + myState->ind);
       myState->connected = 0;
+      unlockSem(semId, 1 + myState->ind);
+      lockSem(semId, 0);
       close(sockfd);
       return NULL;
     }
+    lockSem(semId, 1 + myState->ind);
     if (status)
     {
       myState->ready = 1;
@@ -134,8 +144,23 @@ void *wormTask(void *targs)
     {
       myState->ready = 0;
     }
+    unlockSem(semId, 1 + myState->ind);
+
+    lockSem(semId, 0);
+    n = write(sockfd, globalState, sizeof(globalState));
+    printf("Sent state:\n%d players\n%d ready\n%d gamePhase\n", globalState->playersConnected, globalState->playersReady, globalState->gamePhase);
+    if (globalState->gamePhase != WAITING_FOR_PLAYERS)
+    {
+      unlockSem(semId, 0);
+      break;
+    }
+    unlockSem(semId, 0);
   }
-  
+
+  while (1)
+  {
+    sleep(1);
+  }
 }
 
 int main(int argc, char *argv[])
@@ -146,7 +171,7 @@ int main(int argc, char *argv[])
     return -1;
   }
 
-  struct GlobalState* globalState = malloc(sizeof(globalState));
+  struct GlobalState *globalState = malloc(sizeof(globalState));
   globalState->gamePhase = WAITING_FOR_PLAYERS;
   struct PlayerState playersState[MAX_PLAYERS];
   bzero(&playersState, sizeof(playersState));
@@ -156,7 +181,12 @@ int main(int argc, char *argv[])
   }
 
   int sockfd = setUpServer(argv[1]);
-
+  //0 for global state, 1-8 for snakes
+  int semId = semget(IPC_PRIVATE, 9, 0600 | IPC_CREAT);
+  for (int i = 0; i < 9; i++)
+  {
+    unlockSem(semId, i);
+  }
   struct sockaddr_in cliaddr;
   socklen_t clilen = sizeof(cliaddr);
   while (1)
@@ -178,32 +208,42 @@ int main(int argc, char *argv[])
           newWormThreadArgs->sockfd = newsockfd;
           newWormThreadArgs->state = (playersState + i);
           newWormThreadArgs->globalState = globalState;
+          newWormThreadArgs->semId = semId;
           pthread_create(&newWormThread, NULL, wormTask, (void *)newWormThreadArgs);
           break;
         }
       }
     }
-    char allPlayersAreReady = 0;
+
+    lockSem(semId, 0);
+    globalState->playersConnected = 0;
+    globalState->playersReady = 0;
     for (int i = 0; i < MAX_PLAYERS; i++)
     {
+      lockSem(semId, 1 + i);
       if (playersState[i].connected)
       {
-        if (playersState[i].ready)
-        {
-          allPlayersAreReady = 1;
-        }
-        else
-        {
-          allPlayersAreReady = 0;
-          break;
-        }
+        globalState->playersConnected++;
       }
+      if (playersState[i].ready)
+      {
+        globalState->playersReady++;
+      }
+      unlockSem(semId, 1 + i);
     }
-    if (allPlayersAreReady)
+    if (globalState->playersConnected > 0 && globalState->playersConnected == globalState->playersReady)
     {
+      globalState->gamePhase = IN_PROGRESS;
+      unlockSem(semId, 0);
       break;
     }
+    unlockSem(semId, 0);
+
     sleep(1);
   }
   printf("All players are ready!\n");
+  while (1)
+  {
+    sleep(1);
+  }
 }
