@@ -4,5 +4,7 @@ server/*
 client/*
 !client/Makefile
 !client/client.cpp
+!client/LTexture.h
+!client/LTexture.cpp
 !client/include
 !client/lib
