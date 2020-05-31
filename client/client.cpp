@@ -119,6 +119,7 @@ int main(int argc, char *args[])
     }
     else
     {
+        gTextTexture = new LTexture();
         gTextTexture->init(gRenderer, gFont);
         struct sockaddr_in servaddr;
         int sockfd = socket(PF_INET, SOCK_STREAM, 0);

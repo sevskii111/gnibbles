@@ -1,6 +1,6 @@
 OS := $(shell uname)
 
-OBJS = client.cpp
+OBJS = LTexture.cpp client.cpp
 
 CC = g++
 
@@ -14,7 +14,7 @@ endif
 
 OBJ_NAME = client
 
-all : $(OBJS)
+all:
 	$(CC) $(OBJS) $(COMPILER_FLAGS) $(LINKER_FLAGS) -o $(OBJ_NAME)
-debug: $(OBJS)
+debug: 
 	$(CC) $(OBJS) $(COMPILER_FLAGS) $(LINKER_FLAGS) -g -o $(OBJ_NAME)
