@@ -10,22 +10,19 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <fcntl.h>
-#include "../shared.h"
 #include "sem.c"
+#include "../shared.h"
 
 #define MAP_SIZE 20
 #define MAX_PLAYERS 8
+#define GLOBAL_STATE_SEM 0
+#define MAP_SEM 1
+#define PLAYERS_SEM_OFFSET 2
 
-struct GlobalState
-{
-  char gamePhase;
-  char playersConnected;
-  char playersReady;
-};
+int map[MAP_SIZE][MAP_SIZE];
 
 struct PlayerState
 {
-  char ind;
   char connected;
   char ready;
   char direction;
@@ -90,10 +87,30 @@ int setUpServer(char *port)
   return sockfd;
 }
 
+void encodeMapRow(char encoded[MAP_SIZE], int map[MAP_SIZE][MAP_SIZE], int r)
+{
+  int maxWormLen = (MAP_SIZE * MAP_SIZE);
+  *encoded = 0;
+  for (int i = 0; i < MAP_SIZE; i++)
+  {
+    int curr;
+    if (map[r][i] <= 1)
+    {
+      curr = map[r][i];
+    }
+    else
+    {
+      curr = map[r][i] / maxWormLen;
+    }
+    encoded[i] = curr;
+  }
+}
+
 struct WormThreadArgs
 {
   int sockfd;
   int semId;
+  int ind;
   struct PlayeState *state;
   struct GlobalState *globalState;
 };
@@ -103,39 +120,38 @@ void *wormTask(void *targs)
   struct WormThreadArgs *args = (struct WormThreadArgs *)targs;
   int sockfd = args->sockfd;
   int semId = args->semId;
+  int ind = args->ind;
   struct PlayerState *myState = args->state;
   struct GlobalState *globalState = args->globalState;
   free(targs);
-  lockSem(semId, 1 + myState->ind);
+  lockSem(semId, PLAYERS_SEM_OFFSET + ind);
   myState->connected = 1;
   myState->ready = 0;
-  unlockSem(semId, 1 + myState->ind);
-  int s = write(sockfd, &myState->ind, sizeof(myState->ind));
+  unlockSem(semId, PLAYERS_SEM_OFFSET + ind);
+  int s = write(sockfd, &ind, sizeof(ind));
   if (s == 0)
   {
-    lockSem(semId, 1 + myState->ind);
+    lockSem(semId, PLAYERS_SEM_OFFSET + ind);
     myState->connected = 0;
-    unlockSem(semId, 1 + myState->ind);
+    unlockSem(semId, PLAYERS_SEM_OFFSET + ind);
     close(sockfd);
     return NULL;
   }
 
-  printf("New player connected(%d)\n", myState->ind);
+  printf("New player connected(%d)\n", ind);
   while (1)
   {
-    printf("Serving request\n");
     char status;
     int n = read(sockfd, &status, sizeof(status));
     if (n == 0)
     {
-      lockSem(semId, 1 + myState->ind);
+      lockSem(semId, PLAYERS_SEM_OFFSET + ind);
       myState->connected = 0;
-      unlockSem(semId, 1 + myState->ind);
-      lockSem(semId, 0);
+      unlockSem(semId, PLAYERS_SEM_OFFSET + ind);
       close(sockfd);
       return NULL;
     }
-    lockSem(semId, 1 + myState->ind);
+    lockSem(semId, PLAYERS_SEM_OFFSET + ind);
     if (status)
     {
       myState->ready = 1;
@@ -144,22 +160,38 @@ void *wormTask(void *targs)
     {
       myState->ready = 0;
     }
-    unlockSem(semId, 1 + myState->ind);
+    unlockSem(semId, PLAYERS_SEM_OFFSET + ind);
 
-    lockSem(semId, 0);
+    lockSem(semId, GLOBAL_STATE_SEM);
     n = write(sockfd, globalState, sizeof(globalState));
-    printf("Sent state:\n%d players\n%d ready\n%d gamePhase\n", globalState->playersConnected, globalState->playersReady, globalState->gamePhase);
     if (globalState->gamePhase != WAITING_FOR_PLAYERS)
     {
-      unlockSem(semId, 0);
+      unlockSem(semId, GLOBAL_STATE_SEM);
       break;
     }
-    unlockSem(semId, 0);
+    unlockSem(semId, GLOBAL_STATE_SEM);
   }
 
+  char mapSize = MAP_SIZE;
+  char mapRowBuff[MAP_SIZE];
+  write(sockfd, &mapSize, sizeof(mapSize));
   while (1)
   {
-    sleep(1);
+    lockSem(semId, MAP_SEM);
+    for (int i = 0; i < MAP_SIZE; i++)
+    {
+      encodeMapRow(mapRowBuff, map, i);
+      write(sockfd, &mapRowBuff, sizeof(mapRowBuff));
+    }
+    lockSem(semId, GLOBAL_STATE_SEM);
+    write(sockfd, &globalState, sizeof(globalState));
+    unlockSem(semId, GLOBAL_STATE_SEM);
+    if (globalState->activeWorm == ind)
+    {
+      char c;
+      read(sockfd, &c, sizeof(c));
+      printf("recived %c controll from worm %d\n", c, ind);
+    }
   }
 }
 
@@ -175,18 +207,15 @@ int main(int argc, char *argv[])
   globalState->gamePhase = WAITING_FOR_PLAYERS;
   struct PlayerState playersState[MAX_PLAYERS];
   bzero(&playersState, sizeof(playersState));
-  for (int i = 0; i < MAX_PLAYERS; i++)
-  {
-    playersState[i].ind = i;
-  }
 
   int sockfd = setUpServer(argv[1]);
-  //0 for global state, 1-8 for snakes
-  int semId = semget(IPC_PRIVATE, 9, 0600 | IPC_CREAT);
-  for (int i = 0; i < 9; i++)
+  //0 for global state, 1 for map, 1-8 for snakes
+  int semId = semget(IPC_PRIVATE, PLAYERS_SEM_OFFSET + MAX_PLAYERS, 0600 | IPC_CREAT);
+  for (int i = 0; i < PLAYERS_SEM_OFFSET + MAX_PLAYERS; i++)
   {
     unlockSem(semId, i);
   }
+  lockSem(semId, 2); //Locking map because it is not yet loaded
   struct sockaddr_in cliaddr;
   socklen_t clilen = sizeof(cliaddr);
   while (1)
@@ -209,18 +238,19 @@ int main(int argc, char *argv[])
           newWormThreadArgs->state = (playersState + i);
           newWormThreadArgs->globalState = globalState;
           newWormThreadArgs->semId = semId;
+          newWormThreadArgs->ind = i;
           pthread_create(&newWormThread, NULL, wormTask, (void *)newWormThreadArgs);
           break;
         }
       }
     }
 
-    lockSem(semId, 0);
+    lockSem(semId, GLOBAL_STATE_SEM);
     globalState->playersConnected = 0;
     globalState->playersReady = 0;
     for (int i = 0; i < MAX_PLAYERS; i++)
     {
-      lockSem(semId, 1 + i);
+      lockSem(semId, PLAYERS_SEM_OFFSET + i);
       if (playersState[i].connected)
       {
         globalState->playersConnected++;
@@ -229,19 +259,22 @@ int main(int argc, char *argv[])
       {
         globalState->playersReady++;
       }
-      unlockSem(semId, 1 + i);
+      unlockSem(semId, PLAYERS_SEM_OFFSET + i);
     }
     if (globalState->playersConnected > 0 && globalState->playersConnected == globalState->playersReady)
     {
       globalState->gamePhase = IN_PROGRESS;
-      unlockSem(semId, 0);
+      unlockSem(semId, GLOBAL_STATE_SEM);
       break;
     }
-    unlockSem(semId, 0);
+    unlockSem(semId, GLOBAL_STATE_SEM);
 
     sleep(1);
   }
   printf("All players are ready!\n");
+  loadMap(globalState->playersConnected, map);
+  unlockSem(semId, MAP_SEM);
+
   while (1)
   {
     sleep(1);
