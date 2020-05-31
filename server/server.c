@@ -106,8 +106,22 @@ void *wormTask(void *targs)
   printf("New player connected(%d)\n", myState->ind);
   while (1)
   {
-    int t;
-    int tt = read(sockfd, &t, sizeof(int));
+    char status;
+    int n = read(sockfd, &status, sizeof(status));
+    if (n == 0)
+    {
+      myState->connected = 0;
+      close(sockfd);
+      return NULL;
+    }
+    if (status)
+    {
+      myState->ready = 1;
+    }
+    else
+    {
+      myState->ready = 0;
+    }
   }
 }
 
@@ -148,7 +162,7 @@ int main(int argc, char *argv[])
           pthread_t newWormThread;
           struct WormThreadArgs *newWormThreadArgs = malloc(sizeof(struct WormThreadArgs));
           newWormThreadArgs->sockfd = newsockfd;
-          newWormThreadArgs->state = (playersState + i);
+          newWormThreadArgs->state = (struct PlayerState *)(playersState + i);
           pthread_create(&newWormThread, NULL, wormTask, (void *)newWormThreadArgs);
           break;
         }
@@ -174,7 +188,7 @@ int main(int argc, char *argv[])
     {
       break;
     }
-    sleep(100);
+    sleep(1);
   }
   printf("All players are ready!\n");
 }
