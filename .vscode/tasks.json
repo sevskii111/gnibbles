@@ -2,14 +2,35 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "type": "shell",
       "label": "build server",
+      "type": "shell",
       "command": "make",
       "options": {
         "cwd": "${workspaceRoot}/server"
       },
-      "problemMatcher": ["$gcc"],
-      "group": "build"
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "args": ["debug"],
+      "problemMatcher": {
+        "owner": "cpp",
+        "fileLocation": ["absolute"],
+        "pattern": {
+          "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
     },
     {
       "label": "build client",
@@ -28,7 +49,7 @@
         "focus": false,
         "panel": "shared"
       },
-      "args": ["QUIET=0"],
+      "args": ["debug"],
       "problemMatcher": {
         "owner": "cpp",
         "fileLocation": ["absolute"],

@@ -155,26 +155,26 @@ int main(int argc, char *argv[])
       }
     }
     char allPlayersAreReady = 0;
-      for (int i = 0; i < MAX_PLAYERS; i++)
+    for (int i = 0; i < MAX_PLAYERS; i++)
+    {
+      if (playersState[i].connected)
       {
-        if (playersState[i].connected)
+        if (playersState[i].ready)
         {
-          if (playersState[i].ready)
-          {
-            allPlayersAreReady = 1;
-          }
-          else
-          {
-            allPlayersAreReady = 0;
-            break;
-          }
+          allPlayersAreReady = 1;
+        }
+        else
+        {
+          allPlayersAreReady = 0;
+          break;
         }
       }
-      if (allPlayersAreReady)
-      {
-        break;
-      }
-      sleep(100);
+    }
+    if (allPlayersAreReady)
+    {
+      break;
+    }
+    sleep(100);
   }
   printf("All players are ready!\n");
 }
