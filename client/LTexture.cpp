@@ -14,6 +14,12 @@ LTexture::~LTexture()
     free();
 }
 
+void LTexture::init(SDL_Renderer *renderer, TTF_Font *gFont)
+{
+    this.renderer = renderer;
+    this.gFont = gFont;
+}
+
 bool LTexture::loadFromRenderedText(std::string textureText, SDL_Color textColor)
 {
     //Get rid of preexisting texture
