@@ -18,6 +18,12 @@ struct ScoreBoardState
   char activeWorm;
 };
 
+struct ScoreboardRecord
+{
+  char ind;
+  int score;
+};
+
 enum GamePhases
 {
   WAITING_FOR_PLAYERS,
