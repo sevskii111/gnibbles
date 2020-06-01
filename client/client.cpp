@@ -277,20 +277,29 @@ int main(int argc, char *args[])
         gTextTexture->loadFromRenderedText(textBuff, gMidFont, TWHITE);
         int squereSize = MENU_HEIGHT - gTextTexture->getHeight() - OFFSET * 3;
         gTextTexture->render(OFFSET, OFFSET);
-
-        SDL_Rect fillRect = {OFFSET + (gTextTexture->getWidth() - squereSize) / 2, MENU_HEIGHT - squereSize - OFFSET, squereSize, squereSize};
-        SDL_SetRenderDrawColor(gRenderer, MAP_COLORS[ind + 1][0], MAP_COLORS[ind + 1][1], MAP_COLORS[ind + 1][2], 0xFF);
-        SDL_RenderFillRect(gRenderer, &fillRect);
-
+        {
+          SDL_Rect fillRect = {OFFSET + (gTextTexture->getWidth() - squereSize) / 2, MENU_HEIGHT - squereSize - OFFSET, squereSize, squereSize};
+          SDL_SetRenderDrawColor(gRenderer, MAP_COLORS[ind + 1][0], MAP_COLORS[ind + 1][1], MAP_COLORS[ind + 1][2], 0xFF);
+          SDL_RenderFillRect(gRenderer, &fillRect);
+        }
         int scoreTextPos = OFFSET * 2 + squereSize / 2 + gTextTexture->getWidth();
-        sprintf(textBuff, "Score");
+        sprintf(textBuff, "SCORE");
         gTextTexture->loadFromRenderedText(textBuff, gMidFont, TWHITE);
         gTextTexture->render(scoreTextPos, OFFSET);
         int pTextHeight = gTextTexture->getHeight();
-        sprintf(textBuff, "%d", 100);
+        int pTextWidth = gTextTexture->getWidth();
+        sprintf(textBuff, "%d", inGameState.score);
         gTextTexture->loadFromRenderedText(textBuff, gMidFont, TWHITE);
-        gTextTexture->render(scoreTextPos, pTextHeight + (MENU_HEIGHT - pTextHeight - gTextTexture->getHeight()) / 2);
+        gTextTexture->render(scoreTextPos + (pTextWidth - gTextTexture->getWidth()) / 2, pTextHeight + (MENU_HEIGHT - pTextHeight - gTextTexture->getHeight()) / 2);
 
+        sprintf(textBuff, "TURN");
+        gTextTexture->loadFromRenderedText(textBuff, gMidFont, TWHITE);
+        gTextTexture->render(SCREEN_WIDTH - OFFSET - gTextTexture->getWidth(), OFFSET);
+        {
+          SDL_Rect fillRect = {SCREEN_WIDTH - (OFFSET + (gTextTexture->getWidth() + squereSize) / 2), MENU_HEIGHT - squereSize - OFFSET, squereSize, squereSize};
+          SDL_SetRenderDrawColor(gRenderer, MAP_COLORS[inGameState.activeWorm + 1][0], MAP_COLORS[inGameState.activeWorm + 1][1], MAP_COLORS[inGameState.activeWorm + 1][2], 0xFF);
+          SDL_RenderFillRect(gRenderer, &fillRect);
+        }
         write(sockfd, &arrowPressed, sizeof(arrowPressed));
       }
       else

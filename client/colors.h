@@ -1,0 +1,19 @@
+#include <SDL2/SDL.h>
+
+#define DARK 79, 91, 98, 255
+#define BLACK 0, 10, 18, 255
+
+SDL_Color TWHITE = {255, 255, 255};
+SDL_Color TGREEN = {118, 210, 117};
+SDL_Color TRED = {240, 85, 69};
+
+unsigned char MAP_COLORS[9][3] = {
+    {0x21, 0x21, 0x21},  //wall
+    {0xaa, 0x00, 0xff},  //worm1
+    {0x30, 0x4f, 0xfe},  //worm2
+    {0x00, 0x91, 0xea},  //worm3
+    {0x00, 0xbd, 0xa5},  //worm4
+    {0x64, 0xdd, 0x17},  //worm5
+    {0xff, 0xd6, 0x00},  //worm6
+    {0xff, 0x6d, 0x00},  //worm7
+    {0xd5, 0x00, 0x00}}; //worm8
