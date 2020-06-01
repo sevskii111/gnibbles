@@ -140,6 +140,19 @@ void gameLoop(int semId, struct GameState *gameState, int map[20][20], struct Pl
   semLock(semId, MAP_SEM);
   semLock(semId, GLOBAL_STATE_SEM);
 
+  if (playersState[gameState->activeWorm].direction || !playersState[gameState->activeWorm].ready)
+  {
+    for (int i = 1; i <= MAX_PLAYERS; i++)
+    {
+      int ind = (gameState->activeWorm + i) % MAX_PLAYERS;
+      if (playersState[ind].ready)
+      {
+        gameState->activeWorm = ind;
+        break;
+      }
+    }
+  }
+
   char allPlayersMadeTurn = 1;
   char playersOnField = 0;
   for (int i = 0; i < MAX_PLAYERS; i++)
@@ -173,11 +186,7 @@ void gameLoop(int semId, struct GameState *gameState, int map[20][20], struct Pl
     {
       for (int j = 0; j < MAP_SIZE; j++)
       {
-        if (map[i][j] > FOOD_OFFSET)
-        {
-          foodOnMap++;
-        }
-        else if (map[i][j] > 1)
+        if (map[i][j] > 1 && map[i][j] < FOOD_OFFSET)
         {
           int snakeId = (map[i][j] - 2) / MAX_WORM_LEN;
           if (!playersState[snakeId].ready)
@@ -222,10 +231,6 @@ void gameLoop(int semId, struct GameState *gameState, int map[20][20], struct Pl
                 map[targetX[snakeId]][targetY[snakeId]] = 2 + MAX_WORM_LEN * i;
               }
             }
-          }
-          else
-          {
-            map[targetX[snakeId]][targetY[snakeId]] = 2 + MAX_WORM_LEN * i;
           }
 
           if (segmentInd + 1 >= playersState->length)
@@ -397,7 +402,7 @@ void *wormTask(void *targs)
     semLock(semId, GLOBAL_STATE_SEM);
     inGameState->gamePhase = gameState->gamePhase;
     inGameState->activeWorm = gameState->activeWorm;
-    
+
     write(sockfd, inGameState, sizeof(*inGameState));
     semUnlock(semId, GLOBAL_STATE_SEM);
 

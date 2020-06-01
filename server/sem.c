@@ -12,12 +12,12 @@ void sem(int semId, int n, int d)
 
 void semUnlock(int semId, int n)
 {
-  printf("%d is unlocked\n", n);
+  //printf("%d is unlocked\n", n);
   sem(semId, n, 1);
 }
 
 void semLock(int semId, int n)
 {
-  printf("%d is locked\n", n);
+  //printf("%d is locked\n", n);
   sem(semId, n, -1);
 }
