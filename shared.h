@@ -1,17 +1,18 @@
-#define MAX_MAP_SIZE 128
-
-struct WaitingState{
+struct WaitingState
+{
   char gamePhase;
   char playersConnected;
   char playersReady;
 };
 
-struct InGameState{
+struct InGameState
+{
   char gamePhase;
   char activeWorm;
 };
 
-struct ScoreBoardState{
+struct ScoreBoardState
+{
   char gamePhase;
   char activeWorm;
 };
