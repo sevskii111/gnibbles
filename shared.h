@@ -9,13 +9,13 @@ struct InGameState
 {
   char gamePhase;
   char activeWorm;
+  char score;
 };
 
 struct ScoreBoardState
 {
   char gamePhase;
   char activeWorm;
-  char score;
 };
 
 enum GamePhases

@@ -404,18 +404,26 @@ void *wormTask(void *targs)
     semLock(semId, GLOBAL_STATE_SEM);
     inGameState->gamePhase = gameState->gamePhase;
     inGameState->activeWorm = gameState->activeWorm;
-
-    write(sockfd, inGameState, sizeof(*inGameState));
     semUnlock(semId, GLOBAL_STATE_SEM);
-
+    semLock(semId, ind + PLAYERS_SEM_OFFSET);
+    inGameState->score = myState->length;
+    write(sockfd, inGameState, sizeof(*inGameState));
     char c;
     read(sockfd, &c, sizeof(c));
-    if (gameState->activeWorm == ind && !myState->direction && c)
+    if (!myState->direction && c && (!myState->prevDirection || myState->prevDirection == c || myState->prevDirection % 2 != c % 2))
     {
-      if (!myState->prevDirection || myState->prevDirection == c || myState->prevDirection % 2 != c % 2)
+      semUnlock(semId, ind + PLAYERS_SEM_OFFSET);
+      semLock(semId, GLOBAL_STATE_SEM);
+      if (gameState->activeWorm == ind)
       {
+        semUnlock(semId, GLOBAL_STATE_SEM);
+        semLock(semId, ind + PLAYERS_SEM_OFFSET);
         myState->direction = c;
-        printf("recived %c controll from worm %d\n", c, ind);
+        semUnlock(semId, ind + PLAYERS_SEM_OFFSET);
+      }
+      else
+      {
+        semUnlock(semId, GLOBAL_STATE_SEM);
       }
     }
   }
