@@ -13,27 +13,20 @@
 #include <limits.h>
 #include <stdlib.h>
 #include "LTexture.h"
+#include "colors.h"
 #include "../shared.h"
 
 const int SCREEN_WIDTH = 640;
 const int SCREEN_HEIGHT = 640;
 const int MAX_COMMAND_LEN = 128;
 
-struct GlobalState
-{
-    char gamePhase;
-    char playersConnectd;
-    char playersReady;
-};
-
 bool init();
 void close();
 
 SDL_Window *gWindow = NULL;
 SDL_Renderer *gRenderer = NULL;
-TTF_Font *gFont;
+TTF_Font *gBigFont, *gMidFont, *gSmallFont;
 LTexture *gTextTexture;
-SDL_Color textColor = {0, 0, 0};
 
 bool init()
 {
@@ -88,8 +81,10 @@ bool loadMedia()
     bool success = true;
 
     //Open the font
-    gFont = TTF_OpenFont("font.ttf", 28);
-    if (gFont == NULL)
+    gSmallFont = TTF_OpenFont("font.ttf", 24);
+    gMidFont = TTF_OpenFont("font.ttf", 36);
+    gBigFont = TTF_OpenFont("font.ttf", 60);
+    if (gSmallFont == NULL || gMidFont == NULL || gBigFont == NULL)
     {
         printf("Failed to load lazy font! SDL_ttf Error: %s\n", TTF_GetError());
         success = false;
@@ -113,14 +108,14 @@ void close()
 
 int main(int argc, char *args[])
 {
-    if (!init() || !loadMedia())
+    if (!init() || TTF_Init() || !loadMedia())
     {
         printf("Failed to initialize!\n");
     }
     else
     {
         gTextTexture = new LTexture();
-        gTextTexture->init(gRenderer, gFont);
+        gTextTexture->init(gRenderer);
         struct sockaddr_in servaddr;
         int sockfd = socket(PF_INET, SOCK_STREAM, 0);
 
@@ -137,10 +132,8 @@ int main(int argc, char *args[])
             return 1;
         }
 
-        char commandBuff[MAX_COMMAND_LEN];
-        read(sockfd, commandBuff, MAX_COMMAND_LEN);
-
-        printf("%d\n", commandBuff[0]);
+        char ind;
+        read(sockfd, &ind, sizeof(ind));
 
         //Main loop flag
         bool quit = false;
@@ -153,10 +146,12 @@ int main(int argc, char *args[])
         GlobalState *gameState = new GlobalState();
         gameState->gamePhase = WAITING_FOR_PLAYERS;
 
+        char mapSize = -1;
+        char **map;
         //While application is running
         while (!quit)
         {
-
+            char arrowPressed = 0;
             //Handle events on queue
             while (SDL_PollEvent(&e) != 0)
             {
@@ -176,31 +171,98 @@ int main(int argc, char *args[])
                         break;
                     case SDLK_SPACE:
                         ready = !ready;
+                        break;
+                    case SDLK_UP:
+                        arrowPressed = 1;
+                        break;
+                    case SDLK_RIGHT:
+                        arrowPressed = 2;
+                        break;
+                    case SDLK_DOWN:
+                        arrowPressed = 3;
+                        break;
+                    case SDLK_LEFT:
+                        arrowPressed = 4;
+                        break;
                     default:
                         break;
                     }
                 }
             }
 
-            SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
+            SDL_SetRenderDrawColor(gRenderer, DARK);
             SDL_RenderClear(gRenderer);
 
             if (gameState->gamePhase == WAITING_FOR_PLAYERS)
             {
                 int n = write(sockfd, &ready, sizeof(ready));
                 n = read(sockfd, gameState, sizeof(gameState));
-                printf("Curr state:\n%d players\n%d ready\n%d gamePhase\n", gameState->playersConnectd, gameState->playersReady, gameState->gamePhase);
-                SDL_Rect fillRect = {SCREEN_WIDTH / 4, SCREEN_HEIGHT / 4, SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2};
+
+                char textBuff[128];
+                sprintf(textBuff, "%d of %d", gameState->playersReady, gameState->playersConnected);
+                gTextTexture->loadFromRenderedText(textBuff, gBigFont, TWHITE);
+                gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, (SCREEN_HEIGHT - gTextTexture->getHeight() * 2) / 2);
+
+                sprintf(textBuff, "players are ready");
+                gTextTexture->loadFromRenderedText(textBuff, gMidFont, TWHITE);
+                gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, (SCREEN_HEIGHT) / 2);
+
+                int textOffset = 5;
+                int textYPos = (SCREEN_HEIGHT + gTextTexture->getHeight()) / 2 + gTextTexture->getHeight() + textOffset;
                 if (ready)
                 {
-                    SDL_SetRenderDrawColor(gRenderer, 0x00, 0xFF, 0x00, 0xFF);
+                    sprintf(textBuff, "You are ready");
+                    gTextTexture->loadFromRenderedText(textBuff, gMidFont, TGREEN);
+                    gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, textYPos);
                 }
                 else
                 {
-                    SDL_SetRenderDrawColor(gRenderer, 0xFF, 0x00, 0x00, 0xFF);
+                    sprintf(textBuff, "You are not ready");
+                    gTextTexture->loadFromRenderedText(textBuff, gMidFont, TRED);
+                    gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, textYPos);
                 }
 
-                SDL_RenderFillRect(gRenderer, &fillRect);
+                sprintf(textBuff, "Press space to change");
+                gTextTexture->loadFromRenderedText(textBuff, gSmallFont, TWHITE);
+                gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, textYPos + gTextTexture->getHeight() + textOffset);
+            }
+            else if (gameState->gamePhase == IN_PROGRESS)
+            {
+                if (mapSize == -1)
+                {
+                    read(sockfd, &mapSize, sizeof(mapSize));
+                    map = new char *[mapSize];
+                    for (int i = 0; i < mapSize; i++)
+                    {
+                        map[i] = new char[mapSize];
+                    }
+                }
+                for (int i = 0; i < mapSize; i++)
+                {
+                    char currRow[mapSize];
+                    read(sockfd, currRow, sizeof(currRow));
+                    for (int j = 0; j < mapSize; j++)
+                    {
+                        if (currRow[j])
+                        {
+                            if (currRow[j] > 0)
+                            {
+                                SDL_Rect fillRect = {SCREEN_WIDTH / mapSize * i, SCREEN_HEIGHT / mapSize * j, SCREEN_WIDTH / mapSize, SCREEN_HEIGHT / mapSize};
+                                SDL_SetRenderDrawColor(gRenderer, MAP_COLORS[currRow[j] - 1][0], MAP_COLORS[currRow[j] - 1][1], MAP_COLORS[currRow[j] - 1][2], 0xFF);
+                                SDL_RenderFillRect(gRenderer, &fillRect);
+                            }
+                            else
+                            {
+                                char textBuff[2];
+                                sprintf(textBuff, "%d", -currRow[j]);
+                                gTextTexture->loadFromRenderedText(textBuff, gMidFont, TGREEN);
+                                gTextTexture->render(SCREEN_WIDTH / mapSize * i + gTextTexture->getWidth() / 2, SCREEN_HEIGHT / mapSize * j);
+                            }
+                        }
+                    }
+                }
+                read(sockfd, gameState, sizeof(*gameState));
+                write(sockfd, &arrowPressed, sizeof(arrowPressed));
             }
             else
             {
