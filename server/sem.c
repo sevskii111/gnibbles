@@ -10,12 +10,14 @@ void sem(int semId, int n, int d)
   semop(semId, &op, 1);
 }
 
-void unlockSem(int semId, int n)
+void semUnlock(int semId, int n)
 {
+  printf("%d is unlocked\n", n);
   sem(semId, n, 1);
 }
 
-void lockSem(int semId, int n)
+void semLock(int semId, int n)
 {
+  printf("%d is locked\n", n);
   sem(semId, n, -1);
 }
