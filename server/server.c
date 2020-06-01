@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <fcntl.h>
+#include <math.h>
 #include "sem.c"
 #include "../shared.h"
 
@@ -129,6 +130,12 @@ struct WormThreadArgs
   struct PlayeState *state;
   struct GameState *gameState;
 };
+
+char randFood()
+{
+  int r = rand() % (int)pow(2, 10);
+  return 1 + (char)log2(r);
+}
 
 void gameLoop(int semId, struct GameState *gameState, int map[20][20], struct PlayerState playerStates[MAX_PLAYERS])
 {
@@ -297,8 +304,7 @@ void gameLoop(int semId, struct GameState *gameState, int map[20][20], struct Pl
     int y = rand() % MAP_SIZE;
     if (!map[x][y])
     {
-      int n = rand() % 9;
-      map[x][y] = FOOD_OFFSET + n;
+      map[x][y] = FOOD_OFFSET + randFood();
       gameState->foodOnMap++;
     }
     a++;
@@ -309,8 +315,7 @@ void gameLoop(int semId, struct GameState *gameState, int map[20][20], struct Pl
     {
       if (!map[i][j])
       {
-        int n = rand() % 9;
-        map[i][j] = FOOD_OFFSET + n;
+        map[i][j] = FOOD_OFFSET + randFood();
         gameState->foodOnMap++;
       }
     }
@@ -426,7 +431,13 @@ void *wormTask(void *targs)
         semUnlock(semId, GLOBAL_STATE_SEM);
       }
     }
+    else
+    {
+      semUnlock(semId, ind + PLAYERS_SEM_OFFSET);
+    }
   }
+
+  
 }
 
 int main(int argc, char *argv[])
@@ -520,6 +531,6 @@ int main(int argc, char *argv[])
   while (1)
   {
     gameLoop(semId, globalState, map, playersState);
-    sleep(1);
+    usleep(100);
   }
 }
