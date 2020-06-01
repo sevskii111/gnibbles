@@ -9,7 +9,7 @@ struct InGameState
 {
   char gamePhase;
   char activeWorm;
-  char score;
+  int score;
 };
 
 struct ScoreBoardState
