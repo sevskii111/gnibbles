@@ -163,7 +163,6 @@ int main(int argc, char *args[])
         }
         else if (e.type == SDL_KEYDOWN)
         {
-          printf("%d\n", e.key.keysym.sym);
           //Select surfaces based on key press
           switch (e.key.keysym.sym)
           {
