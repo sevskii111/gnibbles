@@ -426,6 +426,10 @@ void *wormTask(void *targs)
         semUnlock(semId, GLOBAL_STATE_SEM);
       }
     }
+    else
+    {
+      semUnlock(semId, ind + PLAYERS_SEM_OFFSET);
+    }
   }
 }
 
@@ -520,6 +524,6 @@ int main(int argc, char *argv[])
   while (1)
   {
     gameLoop(semId, globalState, map, playersState);
-    sleep(1);
+    usleep(100);
   }
 }
