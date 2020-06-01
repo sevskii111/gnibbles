@@ -143,8 +143,7 @@ int main(int argc, char *args[])
 
         bool ready = false;
 
-        GlobalState *gameState = new GlobalState();
-        gameState->gamePhase = WAITING_FOR_PLAYERS;
+        char gamePhase = WAITING_FOR_PLAYERS;
 
         char mapSize = -1;
         char **map;
@@ -193,13 +192,15 @@ int main(int argc, char *args[])
             SDL_SetRenderDrawColor(gRenderer, DARK);
             SDL_RenderClear(gRenderer);
 
-            if (gameState->gamePhase == WAITING_FOR_PLAYERS)
+            if (gamePhase == WAITING_FOR_PLAYERS)
             {
+                WaitingState waitingState;
                 int n = write(sockfd, &ready, sizeof(ready));
-                n = read(sockfd, gameState, sizeof(gameState));
+                n = read(sockfd, &waitingState, sizeof(waitingState));
+                gamePhase = waitingState.gamePhase;
 
                 char textBuff[128];
-                sprintf(textBuff, "%d of %d", gameState->playersReady, gameState->playersConnected);
+                sprintf(textBuff, "%d of %d", waitingState.playersReady, waitingState.playersConnected);
                 gTextTexture->loadFromRenderedText(textBuff, gBigFont, TWHITE);
                 gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, (SCREEN_HEIGHT - gTextTexture->getHeight() * 2) / 2);
 
@@ -226,7 +227,7 @@ int main(int argc, char *args[])
                 gTextTexture->loadFromRenderedText(textBuff, gSmallFont, TWHITE);
                 gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, textYPos + gTextTexture->getHeight() + textOffset);
             }
-            else if (gameState->gamePhase == IN_PROGRESS)
+            else if (gamePhase == IN_PROGRESS)
             {
                 if (mapSize == -1)
                 {
@@ -261,7 +262,11 @@ int main(int argc, char *args[])
                         }
                     }
                 }
-                read(sockfd, gameState, sizeof(*gameState));
+
+                InGameState inGameState;
+                read(sockfd, &inGameState, sizeof(inGameState));
+                gamePhase = inGameState.gamePhase;
+
                 write(sockfd, &arrowPressed, sizeof(arrowPressed));
             }
             else
