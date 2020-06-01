@@ -10,7 +10,6 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <fcntl.h>
-#include <math.h>
 #include "sem.c"
 #include "../shared.h"
 
@@ -133,8 +132,14 @@ struct WormThreadArgs
 
 char randFood()
 {
-  int r = rand() % (int)pow(2, 10);
-  return 1 + (char)log2(r);
+  int r = rand() % 512;
+  int n = 9;
+  while (r > 0)
+  {
+    n--;
+    r /= 2;
+  }
+  return 1 + n;
 }
 
 void gameLoop(int semId, struct GameState *gameState, int map[20][20], struct PlayerState playerStates[MAX_PLAYERS])
@@ -177,150 +182,150 @@ void gameLoop(int semId, struct GameState *gameState, int map[20][20], struct Pl
   if (playersOnField == 0)
   {
     gameState->gamePhase = SCOREBOARD;
-    return;
   }
-
-  char toRemoveC = 0;
-  char toRemove[MAX_PLAYERS];
-  if (allPlayersMadeTurn)
+  else
   {
-    char lenIncrease[MAX_PLAYERS];
-    bzero(lenIncrease, sizeof(lenIncrease));
-    char targetX[MAX_PLAYERS], targetY[MAX_PLAYERS];
-    char foodOnMap = 0;
-    for (int i = 0; i < MAP_SIZE; i++)
+    char toRemoveC = 0;
+    char toRemove[MAX_PLAYERS];
+    if (allPlayersMadeTurn)
     {
-      for (int j = 0; j < MAP_SIZE; j++)
+      char lenIncrease[MAX_PLAYERS];
+      bzero(lenIncrease, sizeof(lenIncrease));
+      char targetX[MAX_PLAYERS], targetY[MAX_PLAYERS];
+      char foodOnMap = 0;
+      for (int i = 0; i < MAP_SIZE; i++)
       {
-        if (map[i][j] > 1 && map[i][j] < FOOD_OFFSET)
+        for (int j = 0; j < MAP_SIZE; j++)
         {
-          int snakeId = (map[i][j] - 2) / MAX_WORM_LEN;
-          if (!playersState[snakeId].ready)
-            continue;
-          int segmentInd = (map[i][j] - 2) % MAX_WORM_LEN;
-          map[i][j]++;
-          if (segmentInd == 0)
+          if (map[i][j] > 1 && map[i][j] < FOOD_OFFSET)
           {
-            char direction = playersState[snakeId].direction;
-            if (direction == 1)
+            int snakeId = (map[i][j] - 2) / MAX_WORM_LEN;
+            if (!playersState[snakeId].ready)
+              continue;
+            int segmentInd = (map[i][j] - 2) % MAX_WORM_LEN;
+            map[i][j]++;
+            if (segmentInd == 0)
             {
-              targetX[snakeId] = i;
-              targetY[snakeId] = j - 1;
-            }
-            else if (direction == 2)
-            {
-              targetX[snakeId] = i + 1;
-              targetY[snakeId] = j;
-            }
-            else if (direction == 3)
-            {
-              targetX[snakeId] = i;
-              targetY[snakeId] = j + 1;
-            }
-            else if (direction == 4)
-            {
-              targetX[snakeId] = i - 1;
-              targetY[snakeId] = j;
-            }
+              char direction = playersState[snakeId].direction;
+              if (direction == 1)
+              {
+                targetX[snakeId] = i;
+                targetY[snakeId] = j - 1;
+              }
+              else if (direction == 2)
+              {
+                targetX[snakeId] = i + 1;
+                targetY[snakeId] = j;
+              }
+              else if (direction == 3)
+              {
+                targetX[snakeId] = i;
+                targetY[snakeId] = j + 1;
+              }
+              else if (direction == 4)
+              {
+                targetX[snakeId] = i - 1;
+                targetY[snakeId] = j;
+              }
 
-            if (map[targetX[snakeId]][targetY[snakeId]])
-            {
-              if (map[targetX[snakeId]][targetY[snakeId]] < FOOD_OFFSET)
+              if (map[targetX[snakeId]][targetY[snakeId]])
               {
-                if (map[targetX[snakeId]][targetY[snakeId]] > 1)
+                if (map[targetX[snakeId]][targetY[snakeId]] < FOOD_OFFSET)
                 {
-                  int targetSnakeId = (map[targetX[snakeId]][targetY[snakeId]] - 2) / MAX_WORM_LEN;
-                  int targetSegmentId = (map[targetX[snakeId]][targetY[snakeId]] - 2) % MAX_WORM_LEN;
-                  if (targetSegmentId + 1 >= playersState[targetSnakeId].length)
+                  if (map[targetX[snakeId]][targetY[snakeId]] > 1)
                   {
-                    continue;
+                    int targetSnakeId = (map[targetX[snakeId]][targetY[snakeId]] - 2) / MAX_WORM_LEN;
+                    int targetSegmentId = (map[targetX[snakeId]][targetY[snakeId]] - 2) % MAX_WORM_LEN;
+                    if (targetSegmentId + 1 >= playersState[targetSnakeId].length)
+                    {
+                      continue;
+                    }
                   }
+                  playersState[snakeId].ready = 0;
+                  toRemove[toRemoveC] = snakeId;
+                  toRemoveC++;
                 }
-                playersState[snakeId].ready = 0;
-                toRemove[toRemoveC] = snakeId;
-                toRemoveC++;
-              }
-              else
-              {
-                gameState->foodOnMap--;
-                lenIncrease[snakeId] = map[targetX[snakeId]][targetY[snakeId]] - FOOD_OFFSET;
-                map[targetX[snakeId]][targetY[snakeId]] = 2 + MAX_WORM_LEN * i;
+                else
+                {
+                  gameState->foodOnMap--;
+                  lenIncrease[snakeId] = map[targetX[snakeId]][targetY[snakeId]] - FOOD_OFFSET;
+                  map[targetX[snakeId]][targetY[snakeId]] = 2 + MAX_WORM_LEN * i;
+                }
               }
             }
+            else if (segmentInd + 1 >= playersState->length)
+            {
+              map[i][j] = 0;
+            }
           }
-          else if (segmentInd + 1 >= playersState->length)
-          {
-            map[i][j] = 0;
-          }
+        }
+      }
+
+      for (int i = 0; i < MAX_PLAYERS; i++)
+      {
+        if (playersState[i].ready)
+        {
+          playersState[i].length += lenIncrease[i];
+          playersState[i].prevDirection = playersState[i].direction;
+          playersState[i].direction = 0;
+
+          map[targetX[i]][targetY[i]] = 2 + MAX_WORM_LEN * i;
         }
       }
     }
 
     for (int i = 0; i < MAX_PLAYERS; i++)
     {
-      if (playersState[i].ready)
+      if (!playersState[i].connected && playersState[i].ready)
       {
-        playersState[i].length += lenIncrease[i];
-        playersState[i].prevDirection = playersState[i].direction;
-        playersState[i].direction = 0;
-
-        map[targetX[i]][targetY[i]] = 2 + MAX_WORM_LEN * i;
+        playersState[i].ready = 0;
+        toRemove[toRemoveC] = i;
+        toRemoveC++;
       }
     }
-  }
 
-  for (int i = 0; i < MAX_PLAYERS; i++)
-  {
-    if (!playersState[i].connected && playersState[i].ready)
+    for (int k = 0; k < toRemoveC; k++)
     {
-      playersState[i].ready = 0;
-      toRemove[toRemoveC] = i;
-      toRemoveC++;
-    }
-  }
-
-  for (int k = 0; k < toRemoveC; k++)
-  {
-    for (int i = 0; i < MAP_SIZE; i++)
-    {
-      for (int j = 0; j < MAP_SIZE; j++)
+      for (int i = 0; i < MAP_SIZE; i++)
       {
-        if (map[i][j] > 1 && map[i][j] < FOOD_OFFSET)
+        for (int j = 0; j < MAP_SIZE; j++)
         {
-          int snakeId = (map[i][j] - 2) / MAX_WORM_LEN;
-          if (snakeId == toRemove[k])
+          if (map[i][j] > 1 && map[i][j] < FOOD_OFFSET)
           {
-            map[i][j] = 0;
+            int snakeId = (map[i][j] - 2) / MAX_WORM_LEN;
+            if (snakeId == toRemove[k])
+            {
+              map[i][j] = 0;
+            }
           }
         }
       }
     }
-  }
 
-  int a = 0;
-  while (FOOD_TARGET - gameState->foodOnMap > 0 && a < 10000)
-  {
-    int x = rand() % MAP_SIZE;
-    int y = rand() % MAP_SIZE;
-    if (!map[x][y])
+    int a = 0;
+    while (FOOD_TARGET - gameState->foodOnMap > 0 && a < 10000)
     {
-      map[x][y] = FOOD_OFFSET + randFood();
-      gameState->foodOnMap++;
-    }
-    a++;
-  }
-  for (int i = 0; i < MAP_SIZE && FOOD_TARGET - gameState->foodOnMap > 0; i++)
-  {
-    for (int j = 0; j < MAP_SIZE && FOOD_TARGET - gameState->foodOnMap > 0; j++)
-    {
-      if (!map[i][j])
+      int x = rand() % MAP_SIZE;
+      int y = rand() % MAP_SIZE;
+      if (!map[x][y])
       {
-        map[i][j] = FOOD_OFFSET + randFood();
+        map[x][y] = FOOD_OFFSET + randFood();
         gameState->foodOnMap++;
+      }
+      a++;
+    }
+    for (int i = 0; i < MAP_SIZE && FOOD_TARGET - gameState->foodOnMap > 0; i++)
+    {
+      for (int j = 0; j < MAP_SIZE && FOOD_TARGET - gameState->foodOnMap > 0; j++)
+      {
+        if (!map[i][j])
+        {
+          map[i][j] = FOOD_OFFSET + randFood();
+          gameState->foodOnMap++;
+        }
       }
     }
   }
-
   for (int i = 0; i < MAX_PLAYERS; i++)
   {
     semUnlock(semId, i + PLAYERS_SEM_OFFSET);
@@ -436,8 +441,21 @@ void *wormTask(void *targs)
       semUnlock(semId, ind + PLAYERS_SEM_OFFSET);
     }
   }
-
-  
+  semLock(semId, GLOBAL_STATE_SEM);
+  write(sockfd, &gameState->playersReady, sizeof(gameState->playersReady));
+  semUnlock(semId, GLOBAL_STATE_SEM);
+  for (int i = 0; i < MAX_PLAYERS; i++)
+  {
+    semLock(semId, GLOBAL_STATE_SEM + i);
+    if (playersState[i].length > 0)
+    {
+      struct ScoreboardRecord record;
+      record.ind = i;
+      record.score = playersState[i].length;
+      write(sockfd, &record, sizeof(record));
+    }
+    semUnlock(semId, GLOBAL_STATE_SEM + i);
+  }
 }
 
 int main(int argc, char *argv[])
@@ -452,14 +470,9 @@ int main(int argc, char *argv[])
   globalState->gamePhase = WAITING_FOR_PLAYERS;
   globalState->activeWorm = 0;
   bzero(&playersState, sizeof(playersState));
-  for (int i = 0; i < MAX_PLAYERS; i++)
-  {
-    playersState[i].length = START_SNAKE_LEN;
-  }
 
   int sockfd = setUpServer(argv[1]);
   loadMap(map);
-  //0 for global state, 1 for map, 1-8 for snakes
   int semId = semget(IPC_PRIVATE, PLAYERS_SEM_OFFSET + MAX_PLAYERS, 0600 | IPC_CREAT);
   for (int i = 0; i < PLAYERS_SEM_OFFSET + MAX_PLAYERS; i++)
   {
@@ -524,6 +537,15 @@ int main(int argc, char *argv[])
   printf("All players are ready!\n");
   for (int i = 0; i < MAX_PLAYERS; i++)
   {
+    semLock(semId, i + PLAYERS_SEM_OFFSET);
+    if (playersState[i].ready)
+    {
+      playersState[i].length = START_SNAKE_LEN;
+    }
+    semUnlock(semId, i + PLAYERS_SEM_OFFSET);
+  }
+  for (int i = 0; i < MAX_PLAYERS; i++)
+  {
     semLock(semId, PLAYERS_SEM_OFFSET + i);
     playersState[i].ready = 1;
     semUnlock(semId, PLAYERS_SEM_OFFSET + i);
@@ -531,6 +553,17 @@ int main(int argc, char *argv[])
   while (1)
   {
     gameLoop(semId, globalState, map, playersState);
+    semLock(semId, GLOBAL_STATE_SEM);
+    if (globalState->gamePhase != IN_PROGRESS)
+    {
+      semUnlock(semId, GLOBAL_STATE_SEM);
+      break;
+    }
+    semUnlock(semId, GLOBAL_STATE_SEM);
     usleep(100);
+  }
+  while (1)
+  {
+    sleep(1);
   }
 }
