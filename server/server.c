@@ -13,7 +13,6 @@
 #include "sem.c"
 #include "../shared.h"
 
-#define REAL_TIME 0
 #define MAP_SIZE 20
 #define MAX_PLAYERS 8
 #define START_SNAKE_LEN 3
@@ -179,7 +178,7 @@ void gameLoop(int semId, struct GameState *gameState, int map[20][20], struct Pl
   if (allPlayersMadeTurn)
   {
     char lenIncrease[MAX_PLAYERS];
-    memset(lenIncrease, 0, sizeof(lenIncrease));
+    bzero(lenIncrease, sizeof(lenIncrease));
     char targetX[MAX_PLAYERS], targetY[MAX_PLAYERS];
     char foodOnMap = 0;
     for (int i = 0; i < MAP_SIZE; i++)
@@ -221,19 +220,28 @@ void gameLoop(int semId, struct GameState *gameState, int map[20][20], struct Pl
             {
               if (map[targetX[snakeId]][targetY[snakeId]] < FOOD_OFFSET)
               {
+                if (map[targetX[snakeId]][targetY[snakeId]] > 1)
+                {
+                  int targetSnakeId = (map[targetX[snakeId]][targetY[snakeId]] - 2) / MAX_WORM_LEN;
+                  int targetSegmentId = (map[targetX[snakeId]][targetY[snakeId]] - 2) % MAX_WORM_LEN;
+                  if (targetSegmentId + 1 >= playersState[targetSnakeId].length)
+                  {
+                    continue;
+                  }
+                }
                 playersState[snakeId].ready = 0;
                 toRemove[toRemoveC] = snakeId;
                 toRemoveC++;
               }
               else
               {
+                gameState->foodOnMap--;
                 lenIncrease[snakeId] = map[targetX[snakeId]][targetY[snakeId]] - FOOD_OFFSET;
                 map[targetX[snakeId]][targetY[snakeId]] = 2 + MAX_WORM_LEN * i;
               }
             }
           }
-
-          if (segmentInd + 1 >= playersState->length)
+          else if (segmentInd + 1 >= playersState->length)
           {
             map[i][j] = 0;
           }
@@ -245,16 +253,10 @@ void gameLoop(int semId, struct GameState *gameState, int map[20][20], struct Pl
     {
       if (playersState[i].ready)
       {
-        if (!REAL_TIME)
-        {
-          playersState[i].prevDirection = playersState[i].direction;
-          playersState[i].direction = 0;
-        }
-        if (map[targetX[i]][targetY[i]] > FOOD_OFFSET)
-        {
-          gameState->foodOnMap--;
-          playersState[i].length += map[targetX[i]][targetY[i]] - FOOD_OFFSET;
-        }
+        playersState[i].length += lenIncrease[i];
+        playersState[i].prevDirection = playersState[i].direction;
+        playersState[i].direction = 0;
+
         map[targetX[i]][targetY[i]] = 2 + MAX_WORM_LEN * i;
       }
     }

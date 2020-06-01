@@ -14,6 +14,7 @@ struct InGameState{
 struct ScoreBoardState{
   char gamePhase;
   char activeWorm;
+  char score;
 };
 
 enum GamePhases
