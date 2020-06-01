@@ -149,6 +149,7 @@ int main(int argc, char *args[])
 
     char mapSize = -1;
     char **map;
+    char textBuff[128];
     //While application is running
     while (!quit)
     {
@@ -200,7 +201,6 @@ int main(int argc, char *args[])
         n = read(sockfd, &waitingState, sizeof(waitingState));
         gamePhase = waitingState.gamePhase;
 
-        char textBuff[128];
         sprintf(textBuff, "%d of %d", waitingState.playersReady, waitingState.playersConnected);
         gTextTexture->loadFromRenderedText(textBuff, gBigFont, TWHITE);
         gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, (SCREEN_HEIGHT - gTextTexture->getHeight() * 2) / 2);
@@ -250,7 +250,6 @@ int main(int argc, char *args[])
               }
               else
               {
-                char textBuff[2];
                 sprintf(textBuff, "%d", -currRow[j]);
                 gTextTexture->loadFromRenderedText(textBuff, gMidFont, TGREEN);
                 gTextTexture->render(SCREEN_WIDTH / mapSize * i + gTextTexture->getWidth() / 2, MENU_HEIGHT + GAME_HEIGHT / mapSize * j);
@@ -271,7 +270,6 @@ int main(int argc, char *args[])
           SDL_RenderFillRect(gRenderer, &fillRect);
         }
 
-        char textBuff[128];
         sprintf(textBuff, "Color");
         gTextTexture->loadFromRenderedText(textBuff, gMidFont, TWHITE);
         int squereSize = MENU_HEIGHT - gTextTexture->getHeight() - OFFSET * 3;
@@ -300,6 +298,9 @@ int main(int argc, char *args[])
           SDL_RenderFillRect(gRenderer, &fillRect);
         }
         write(sockfd, &arrowPressed, sizeof(arrowPressed));
+      }
+      else if (gamePhase == SCOREBOARD)
+      {
       }
       else
       {
