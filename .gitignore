@@ -4,6 +4,7 @@ server/*
 client/*
 !client/Makefile
 !client/client.cpp
+!client/colors.h
 !client/LTexture.h
 !client/LTexture.cpp
 !client/font.ttf
