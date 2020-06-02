@@ -3,6 +3,11 @@
         "ios": "cpp",
         "istream": "cpp",
         "locale": "cpp",
-        "ostream": "cpp"
+        "ostream": "cpp",
+        "*.tcc": "c",
+        "optional": "c",
+        "fstream": "c",
+        "sstream": "c",
+        "streambuf": "c"
     }
 }
