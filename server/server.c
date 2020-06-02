@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
   struct GameState *gameState = malloc(sizeof(struct GameState));
   struct Map *map = malloc(sizeof(struct Map));
   struct PlayerState* playersState = malloc(sizeof(struct PlayerState) * MAX_PLAYERS);
-  resetState(gameState, playersState, map->field);
+  resetState(gameState, playersState, map);
 
   if (acceptPlayers(sockfd, semId, gameState, playersState, map) != 0)
   {
@@ -79,8 +79,5 @@ int main(int argc, char *argv[])
   setupGame(semId, playersState);
   playGame(semId, gameState, playersState, map);
   printf("Game finished\n");
-  while (1)
-  {
-    sleep(1);
-  }
+  sleep(5);
 }
