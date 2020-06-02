@@ -1,4 +1,6 @@
-#include <stdio.h>
+#include "sem.h"
+
+#include "stdio.h"
 #include <sys/sem.h>
 
 void sem(int semId, int n, int d)
@@ -12,12 +14,12 @@ void sem(int semId, int n, int d)
 
 void semUnlock(int semId, int n)
 {
-  //printf("%d is unlocked\n", n);
+  //printf("u-%d-%d\n", semId, n);
   sem(semId, n, 1);
 }
 
 void semLock(int semId, int n)
 {
-  //printf("%d is locked\n", n);
+  //printf("l-%d-%d\n", semId, n);
   sem(semId, n, -1);
 }
