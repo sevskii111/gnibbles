@@ -1,3 +1,6 @@
+#define PLAYERS_LIMIT 128
+#define MAP_SIZE_LIMIT 128
+
 struct WaitingState
 {
   char gamePhase;
@@ -12,10 +15,10 @@ struct InGameState
   int score;
 };
 
-struct ScoreBoardState
+struct ScoreboardState
 {
   char gamePhase;
-  char activeWorm;
+  char players;
 };
 
 struct ScoreboardRecord

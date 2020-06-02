@@ -1,5 +1,4 @@
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 #include <stdio.h>
 #include <string>
@@ -63,13 +62,6 @@ bool init()
       else
       {
         SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
-
-        int imgFlags = IMG_INIT_PNG;
-        if (!(IMG_Init(imgFlags) & imgFlags))
-        {
-          printf("SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError());
-          success = false;
-        }
       }
     }
   }
@@ -104,7 +96,6 @@ void close()
   gRenderer = NULL;
 
   //Quit SDL subsystems
-  IMG_Quit();
   SDL_Quit();
 }
 
@@ -146,6 +137,8 @@ int main(int argc, char *args[])
     bool ready = false;
 
     char gamePhase = WAITING_FOR_PLAYERS;
+    int scoresCount = 0;
+    ScoreboardRecord cachedScores[PLAYERS_LIMIT];
 
     char mapSize = -1;
     char **map;
@@ -301,6 +294,32 @@ int main(int argc, char *args[])
       }
       else if (gamePhase == SCOREBOARD)
       {
+        ScoreboardState scoreboardState;
+        read(sockfd, &scoreboardState, sizeof(ScoreboardState));
+        if (!scoresCount)
+        {
+          scoresCount = scoreboardState.players;
+          for (int i = 0; i < scoresCount; i++)
+          {
+            read(sockfd, &cachedScores[i], sizeof(cachedScores[i]));
+          }
+        }
+        int TOP_OFFSET = 100;
+        int OFFSET = 20;
+        sprintf(textBuff, "SCOREBOARD");
+        gTextTexture->loadFromRenderedText(textBuff, gBigFont, TWHITE);
+        gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, TOP_OFFSET);
+        int recordsStart = TOP_OFFSET + gTextTexture->getHeight() + OFFSET;
+        for (int i = 0; i < scoresCount; i++)
+        {
+          ScoreboardRecord record = cachedScores[i];
+          sprintf(textBuff, "%d", record.score);
+          SDL_Color color = {MAP_COLORS[record.ind + 1][0], MAP_COLORS[record.ind + 1][1], MAP_COLORS[record.ind + 1][2]};
+          gTextTexture->loadFromRenderedText(textBuff, gBigFont, color);
+          gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, recordsStart + i * gTextTexture->getHeight());
+        }
+        char sync = 1;
+        write(sockfd, &sync, sizeof(sync));
       }
       else
       {
