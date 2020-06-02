@@ -1,5 +1,4 @@
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
 #include <SDL2/SDL_ttf.h>
 #include <stdio.h>
 #include <string>
@@ -63,13 +62,6 @@ bool init()
       else
       {
         SDL_SetRenderDrawColor(gRenderer, 0xFF, 0xFF, 0xFF, 0xFF);
-
-        int imgFlags = IMG_INIT_PNG;
-        if (!(IMG_Init(imgFlags) & imgFlags))
-        {
-          printf("SDL_image could not initialize! SDL_image Error: %s\n", IMG_GetError());
-          success = false;
-        }
       }
     }
   }
@@ -104,7 +96,6 @@ void close()
   gRenderer = NULL;
 
   //Quit SDL subsystems
-  IMG_Quit();
   SDL_Quit();
 }
 
@@ -146,9 +137,12 @@ int main(int argc, char *args[])
     bool ready = false;
 
     char gamePhase = WAITING_FOR_PLAYERS;
+    int scoresCount = 0;
+    ScoreboardRecord cachedScores[PLAYERS_LIMIT];
 
     char mapSize = -1;
     char **map;
+    char textBuff[128];
     //While application is running
     while (!quit)
     {
@@ -200,7 +194,6 @@ int main(int argc, char *args[])
         n = read(sockfd, &waitingState, sizeof(waitingState));
         gamePhase = waitingState.gamePhase;
 
-        char textBuff[128];
         sprintf(textBuff, "%d of %d", waitingState.playersReady, waitingState.playersConnected);
         gTextTexture->loadFromRenderedText(textBuff, gBigFont, TWHITE);
         gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, (SCREEN_HEIGHT - gTextTexture->getHeight() * 2) / 2);
@@ -250,7 +243,6 @@ int main(int argc, char *args[])
               }
               else
               {
-                char textBuff[2];
                 sprintf(textBuff, "%d", -currRow[j]);
                 gTextTexture->loadFromRenderedText(textBuff, gMidFont, TGREEN);
                 gTextTexture->render(SCREEN_WIDTH / mapSize * i + gTextTexture->getWidth() / 2, MENU_HEIGHT + GAME_HEIGHT / mapSize * j);
@@ -271,7 +263,6 @@ int main(int argc, char *args[])
           SDL_RenderFillRect(gRenderer, &fillRect);
         }
 
-        char textBuff[128];
         sprintf(textBuff, "Color");
         gTextTexture->loadFromRenderedText(textBuff, gMidFont, TWHITE);
         int squereSize = MENU_HEIGHT - gTextTexture->getHeight() - OFFSET * 3;
@@ -300,6 +291,35 @@ int main(int argc, char *args[])
           SDL_RenderFillRect(gRenderer, &fillRect);
         }
         write(sockfd, &arrowPressed, sizeof(arrowPressed));
+      }
+      else if (gamePhase == SCOREBOARD)
+      {
+        ScoreboardState scoreboardState;
+        read(sockfd, &scoreboardState, sizeof(ScoreboardState));
+        if (!scoresCount)
+        {
+          scoresCount = scoreboardState.players;
+          for (int i = 0; i < scoresCount; i++)
+          {
+            read(sockfd, &cachedScores[i], sizeof(cachedScores[i]));
+          }
+        }
+        int TOP_OFFSET = 100;
+        int OFFSET = 20;
+        sprintf(textBuff, "SCOREBOARD");
+        gTextTexture->loadFromRenderedText(textBuff, gBigFont, TWHITE);
+        gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, TOP_OFFSET);
+        int recordsStart = TOP_OFFSET + gTextTexture->getHeight() + OFFSET;
+        for (int i = 0; i < scoresCount; i++)
+        {
+          ScoreboardRecord record = cachedScores[i];
+          sprintf(textBuff, "%d", record.score);
+          SDL_Color color = {MAP_COLORS[record.ind + 1][0], MAP_COLORS[record.ind + 1][1], MAP_COLORS[record.ind + 1][2]};
+          gTextTexture->loadFromRenderedText(textBuff, gBigFont, color);
+          gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, recordsStart + i * gTextTexture->getHeight());
+        }
+        char sync = 1;
+        write(sockfd, &sync, sizeof(sync));
       }
       else
       {
