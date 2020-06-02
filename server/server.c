@@ -126,7 +126,7 @@ struct WormThreadArgs
   int sockfd;
   int semId;
   char ind;
-  struct PlayeState *state;
+  struct PlayerState *state;
   struct GameState *gameState;
 };
 
@@ -358,8 +358,8 @@ void *wormTask(void *targs)
   }
 
   printf("New player connected(%d)\n", ind);
-  struct WaitingState *waitingState = malloc(sizeof(*waitingState));
-  while (1)
+  struct WaitingState waitingState;
+  do
   {
     char status;
     int n = read(sockfd, &status, sizeof(status));
@@ -383,26 +383,19 @@ void *wormTask(void *targs)
     semUnlock(semId, PLAYERS_SEM_OFFSET + ind);
 
     semLock(semId, GLOBAL_STATE_SEM);
-
-    waitingState->gamePhase = gameState->gamePhase;
-    waitingState->playersConnected = gameState->playersConnected;
-    waitingState->playersReady = gameState->playersReady;
-
-    n = write(sockfd, waitingState, sizeof(*waitingState));
-    if (gameState->gamePhase != WAITING_FOR_PLAYERS)
-    {
-      semUnlock(semId, GLOBAL_STATE_SEM);
-      break;
-    }
+    waitingState.gamePhase = gameState->gamePhase;
+    waitingState.playersConnected = gameState->playersConnected;
+    waitingState.playersReady = gameState->playersReady;
     semUnlock(semId, GLOBAL_STATE_SEM);
-  }
-  free(waitingState);
 
-  struct InGameState *inGameState = malloc(sizeof(*inGameState));
+    n = write(sockfd, &waitingState, sizeof(waitingState));
+  } while (waitingState.gamePhase == WAITING_FOR_PLAYERS);
+
+  struct InGameState inGameState;
   char mapSize = MAP_SIZE;
   char mapRowBuff[MAP_SIZE];
   write(sockfd, &mapSize, sizeof(mapSize));
-  while (1)
+  do
   {
     semLock(semId, MAP_SEM);
     for (int i = 0; i < MAP_SIZE; i++)
@@ -412,12 +405,11 @@ void *wormTask(void *targs)
     }
     semUnlock(semId, MAP_SEM);
     semLock(semId, GLOBAL_STATE_SEM);
-    inGameState->gamePhase = gameState->gamePhase;
-    inGameState->activeWorm = gameState->activeWorm;
+    inGameState.gamePhase = gameState->gamePhase;
+    inGameState.activeWorm = gameState->activeWorm;
     semUnlock(semId, GLOBAL_STATE_SEM);
-    semLock(semId, ind + PLAYERS_SEM_OFFSET);
-    inGameState->score = myState->length;
-    write(sockfd, inGameState, sizeof(*inGameState));
+    inGameState.score = myState->length;
+    write(sockfd, &inGameState, sizeof(inGameState));
     char c;
     read(sockfd, &c, sizeof(c));
     if (!myState->direction && c && (!myState->prevDirection || myState->prevDirection == c || myState->prevDirection % 2 != c % 2))
@@ -440,13 +432,17 @@ void *wormTask(void *targs)
     {
       semUnlock(semId, ind + PLAYERS_SEM_OFFSET);
     }
-  }
+  } while (inGameState.gamePhase == IN_PROGRESS);
+
+  struct ScoreBoardState scoreboardState;
   semLock(semId, GLOBAL_STATE_SEM);
-  write(sockfd, &gameState->playersReady, sizeof(gameState->playersReady));
+  scoreboardState.gamePhase = gameState->gamePhase;
+  scoreboardState.players = gameState->playersReady;
+  write(sockfd, &scoreboardState, sizeof(scoreboardState));
   semUnlock(semId, GLOBAL_STATE_SEM);
   for (int i = 0; i < MAX_PLAYERS; i++)
   {
-    semLock(semId, GLOBAL_STATE_SEM + i);
+    semLock(semId, PLAYERS_SEM_OFFSET + i);
     if (playersState[i].length > 0)
     {
       struct ScoreboardRecord record;
@@ -454,7 +450,17 @@ void *wormTask(void *targs)
       record.score = playersState[i].length;
       write(sockfd, &record, sizeof(record));
     }
-    semUnlock(semId, GLOBAL_STATE_SEM + i);
+    semUnlock(semId, PLAYERS_SEM_OFFSET + i);
+  }
+  while (1)
+  {
+    semLock(semId, GLOBAL_STATE_SEM);
+    scoreboardState.gamePhase = gameState->gamePhase;
+    scoreboardState.players = gameState->playersReady;
+    write(sockfd, &scoreboardState, sizeof(scoreboardState));
+    semUnlock(semId, GLOBAL_STATE_SEM);
+    char sync;
+    read(sockfd, &sync, sizeof(sync));
   }
 }
 
