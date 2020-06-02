@@ -434,7 +434,7 @@ void *wormTask(void *targs)
     }
   } while (inGameState.gamePhase == IN_PROGRESS);
 
-  struct ScoreBoardState scoreboardState;
+  struct ScoreboardState scoreboardState;
   semLock(semId, GLOBAL_STATE_SEM);
   scoreboardState.gamePhase = gameState->gamePhase;
   scoreboardState.players = gameState->playersReady;
