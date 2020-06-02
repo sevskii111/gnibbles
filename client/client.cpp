@@ -141,7 +141,7 @@ int main(int argc, char *args[])
     ScoreboardRecord cachedScores[PLAYERS_LIMIT];
 
     char mapSize = -1;
-    char **map;
+    char **mapCache;
     char textBuff[128];
     //While application is running
     while (!quit)
@@ -226,11 +226,27 @@ int main(int argc, char *args[])
         if (mapSize == -1)
         {
           read(sockfd, &mapSize, sizeof(mapSize));
+          mapCache = new char *[mapSize];
+          for (int i = 0; i < mapSize; i++)
+          {
+            mapCache[i] = new char[mapSize];
+          }
         }
         for (int i = 0; i < mapSize; i++)
         {
+          char status;
+          read(sockfd, &status, sizeof(status));
           char currRow[mapSize];
-          read(sockfd, currRow, sizeof(currRow));
+          if (status)
+          {
+            read(sockfd, currRow, sizeof(currRow));
+            memcpy(mapCache[i], currRow, sizeof(currRow));
+          }
+          else
+          {
+            memcpy(currRow, mapCache[i], sizeof(currRow));
+          }
+
           for (int j = 0; j < mapSize; j++)
           {
             if (currRow[j])
@@ -303,6 +319,11 @@ int main(int argc, char *args[])
           {
             read(sockfd, &cachedScores[i], sizeof(cachedScores[i]));
           }
+          for (int i = 0; i < mapSize; i++)
+          {
+            delete[] mapCache[i];
+          }
+          delete[] mapCache;
         }
         int TOP_OFFSET = 100;
         int OFFSET = 20;
@@ -325,7 +346,6 @@ int main(int argc, char *args[])
       {
         printf("WTF\n");
       }
-
       //Update screen
       SDL_RenderPresent(gRenderer);
     }
