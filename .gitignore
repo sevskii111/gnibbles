@@ -1,12 +1,11 @@
 server/*
 !server/Makefile
-!server/server.c
+!server/*.c
+!server/*.h
 client/*
 !client/Makefile
-!client/client.cpp
-!client/colors.h
-!client/LTexture.h
-!client/LTexture.cpp
+!client/*.cpp
+!client/*.h
 !client/font.ttf
 !client/include
 !client/lib
