@@ -10,6 +10,7 @@
         "sstream": "c",
         "streambuf": "c",
         "chrono": "c",
-        "cmath": "c"
+        "cmath": "c",
+        "new": "cpp"
     }
 }

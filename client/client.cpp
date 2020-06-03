@@ -97,7 +97,7 @@ void close()
 struct GameState
 {
   char ind;
-  bool ready;
+  char ready;
   char gamePhase;
   char prevGamePhase;
   char mapSize;
@@ -249,28 +249,34 @@ int main(int argc, char *args[])
           gFoodFont = TTF_OpenFont("font.ttf", SCREEN_WIDTH / gameState.mapSize);
           gameState.direction = 0;
         }
+        char mapStatus;
+        if (!read(sockfd, &mapStatus, sizeof(mapStatus)))
+        {
+          break;
+        }
         for (int i = 0; i < gameState.mapSize; i++)
         {
-          char status;
-          if (!read(sockfd, &status, sizeof(status)))
+          if (mapStatus)
           {
-            quit = true;
-            break;
-          }
-          char currRow[gameState.mapSize];
-          if (status)
-          {
-            if (!read(sockfd, currRow, sizeof(currRow)))
+            char rowStatus;
+            if (!read(sockfd, &rowStatus, sizeof(rowStatus)))
             {
               quit = true;
               break;
             }
-            memcpy(gameState.map[i], currRow, sizeof(currRow));
+
+            if (rowStatus)
+            {
+              if (!read(sockfd, gameState.map[i], sizeof(*gameState.map[i]) * gameState.mapSize))
+              {
+                quit = true;
+                break;
+              }
+            }
           }
-          else
-          {
-            memcpy(currRow, gameState.map[i], sizeof(currRow));
-          }
+
+          char currRow[gameState.mapSize];
+          memcpy(currRow, gameState.map[i], sizeof(currRow));
 
           for (int j = 0; j < gameState.mapSize; j++)
           {
