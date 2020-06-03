@@ -162,6 +162,7 @@ void *botTask(void *targs)
   } while (waitingState.gamePhase == WAITING_FOR_PLAYERS);
 
   struct InGameState inGameState;
+  char isAlive = 1;
   do
   {
     semLock(semId, GAME_STATE_SEM);
@@ -173,7 +174,7 @@ void *botTask(void *targs)
     {
       semUnlock(semId, ind + PLAYERS_SEM_OFFSET);
       semLock(semId, GAME_STATE_SEM);
-      if (gameState->activeWorm == ind)
+      if (BOT_SPEED_UP || gameState->activeWorm == ind)
       {
         semUnlock(semId, GAME_STATE_SEM);
         semLock(semId, MAP_SEM);
@@ -185,7 +186,6 @@ void *botTask(void *targs)
 
         myState->direction = makeTurn(x, y, encodedMap);
         semUnlock(semId, ind + PLAYERS_SEM_OFFSET);
-        usleep(100000);
       }
       else
       {
@@ -194,9 +194,11 @@ void *botTask(void *targs)
     }
     else
     {
+      isAlive = myState->ready;
       semUnlock(semId, ind + PLAYERS_SEM_OFFSET);
     }
-  } while (inGameState.gamePhase == IN_PROGRESS);
+    usleep(1000000 / TICKRATE);
+  } while (inGameState.gamePhase == IN_PROGRESS && isAlive);
 
   semLock(semId, ind + PLAYERS_SEM_OFFSET);
   myState->connected = 0;

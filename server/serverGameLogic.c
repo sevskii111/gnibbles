@@ -132,7 +132,7 @@ int acceptPlayers(int sockfd, int semId, struct GameState *gameState, struct Pla
     }
     semUnlock(semId, GAME_STATE_SEM);
 
-    usleep(100);
+    usleep(1000000 / TICKRATE);
   }
 
   return -1;
@@ -337,6 +337,16 @@ char gameLoop(int semId, struct GameState *gameState, int map[MAP_SIZE][MAP_SIZE
           playersState[i].direction = 0;
         }
       }
+
+      for (int i = 0; i < MAX_PLAYERS; i++)
+      {
+        if (!madeMove[i] && playersState[i].ready)
+        {
+          playersState[i].ready = 0;
+          toRemove[toRemoveC] = i;
+          toRemoveC++;
+        }
+      }
     }
 
     for (int i = 0; i < MAX_PLAYERS; i++)
@@ -410,6 +420,6 @@ void playGame(int semId, struct GameState *gameState, struct PlayerState *player
 {
   while (gameLoop(semId, gameState, map->field, playersState, map->rowVersions, &map->mapVersion))
   {
-    usleep(100);
+    usleep(1000000 / TICKRATE);
   }
 }
