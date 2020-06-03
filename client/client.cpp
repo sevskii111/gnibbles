@@ -19,7 +19,7 @@ const int SCREEN_WIDTH = 640;
 const int MENU_HEIGHT = 100;
 const int GAME_HEIGHT = 640;
 const int SCREEN_HEIGHT = GAME_HEIGHT + MENU_HEIGHT;
-const int MAX_COMMAND_LEN = 128;
+const int FPS = 24;
 
 bool init();
 void close();
@@ -147,8 +147,21 @@ int main(int argc, char *args[])
     {
       quit = true;
     }
+
+    Uint32 startTime = 0;
+    Uint32 endTime = 0;
+    Uint32 delta = 0;
+    short timePerFrame = 1000 / FPS;
     while (!quit)
     {
+      if (!startTime)
+      {
+        startTime = SDL_GetTicks();
+      }
+      else
+      {
+        delta = endTime - startTime;
+      }
       while (SDL_PollEvent(&e) != 0)
       {
         if (e.type == SDL_QUIT)
@@ -412,6 +425,13 @@ int main(int argc, char *args[])
         break;
       }
       SDL_RenderPresent(gRenderer);
+
+      if (delta < timePerFrame)
+      {
+        SDL_Delay(timePerFrame - delta);
+      }
+      startTime = endTime;
+      endTime = SDL_GetTicks();
     }
   }
 
