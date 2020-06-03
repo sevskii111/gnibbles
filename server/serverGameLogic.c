@@ -9,6 +9,7 @@
 #include "defines.h"
 #include "settings.h"
 #include "wormLogic.h"
+#include "bot.h"
 
 void loadMap(int map[MAP_SIZE][MAP_SIZE])
 {
@@ -28,7 +29,15 @@ void loadMap(int map[MAP_SIZE][MAP_SIZE])
   }
 
   int inRow = ceil(sqrt(MAX_PLAYERS));
-  float offset = 1.0 * (MAP_SIZE - 3) / (inRow - 1);
+  float offset;
+  if (inRow > 1)
+  {
+    offset = 1.0 * (MAP_SIZE - 3) / (inRow - 1);
+  }
+  else
+  {
+    offset = 0;
+  }
   for (int i = 0; i < MAX_PLAYERS; i++)
   {
     int y = round(offset * (i / inRow));
@@ -129,6 +138,26 @@ int acceptPlayers(int sockfd, int semId, struct GameState *gameState, struct Pla
   return -1;
 }
 
+void addBots(int count, int semId, struct GameState *gameState, struct PlayerState *playersState, struct Map *map)
+{
+  for (int i = 0; i < MAX_PLAYERS && count > 0; i++)
+  {
+    if (!playersState[i].connected)
+    {
+      pthread_t newWormThread;
+      struct WormThreadArgs *newWormThreadArgs = malloc(sizeof(struct WormThreadArgs));
+      newWormThreadArgs->playersState = playersState;
+      newWormThreadArgs->gameState = gameState;
+      newWormThreadArgs->semId = semId;
+      newWormThreadArgs->ind = (char)i;
+      newWormThreadArgs->map = map;
+
+      pthread_create(&newWormThread, NULL, botTask, (void *)newWormThreadArgs);
+      count--;
+    }
+  }
+}
+
 void setupGame(int semId, struct PlayerState *playersState)
 {
   for (int i = 0; i < MAX_PLAYERS; i++)
@@ -160,7 +189,7 @@ char randFood()
   return 1 + n;
 }
 
-char gameLoop(int semId, struct GameState *gameState, int map[MAP_SIZE][MAP_SIZE], struct PlayerState playersState[MAX_PLAYERS], int rowVersions[MAP_SIZE], int* mapVersion)
+char gameLoop(int semId, struct GameState *gameState, int map[MAP_SIZE][MAP_SIZE], struct PlayerState playersState[MAX_PLAYERS], int rowVersions[MAP_SIZE], int *mapVersion)
 {
   for (int i = 0; i < MAX_PLAYERS; i++)
   {
@@ -207,9 +236,9 @@ char gameLoop(int semId, struct GameState *gameState, int map[MAP_SIZE][MAP_SIZE
     if (allPlayersMadeTurn)
     {
       char lenIncrease[MAX_PLAYERS];
+      char madeMove[MAX_PLAYERS];
+      bzero(madeMove, sizeof(madeMove));
       bzero(lenIncrease, sizeof(lenIncrease));
-      char targetX[MAX_PLAYERS], targetY[MAX_PLAYERS];
-      char foodOnMap = 0;
       for (int i = 0; i < MAP_SIZE; i++)
       {
         for (int j = 0; j < MAP_SIZE; j++)
@@ -220,46 +249,51 @@ char gameLoop(int semId, struct GameState *gameState, int map[MAP_SIZE][MAP_SIZE
             if (!playersState[snakeId].ready)
               continue;
             int segmentInd = (map[i][j] - 2) % MAX_WORM_LEN;
-            map[i][j]++;
-            if (segmentInd == 0)
+            if (segmentInd != 0 || !madeMove[snakeId])
             {
+              map[i][j]++;
+            }
+            if (segmentInd == 0 && !madeMove[snakeId])
+            {
+              madeMove[snakeId] = 1;
+              int targetX, targetY;
               char direction = playersState[snakeId].direction;
               if (direction == 1)
               {
-                targetX[snakeId] = i;
-                targetY[snakeId] = j - 1;
+                targetX = i;
+                targetY = j - 1;
               }
               else if (direction == 2)
               {
-                targetX[snakeId] = i + 1;
-                targetY[snakeId] = j;
+                targetX = i + 1;
+                targetY = j;
               }
               else if (direction == 3)
               {
-                targetX[snakeId] = i;
-                targetY[snakeId] = j + 1;
+                targetX = i;
+                targetY = j + 1;
               }
               else if (direction == 4)
               {
-                targetX[snakeId] = i - 1;
-                targetY[snakeId] = j;
+                targetX = i - 1;
+                targetY = j;
               }
 
-              if (targetX[snakeId] < 0 || targetX[snakeId] >= MAP_SIZE || targetY[snakeId] < 0 || targetY[snakeId] >= MAP_SIZE)
+              if (targetX < 0 || targetX >= MAP_SIZE || targetY < 0 || targetY >= MAP_SIZE)
               {
                 playersState[snakeId].ready = 0;
                 toRemove[toRemoveC] = snakeId;
                 toRemoveC++;
               }
-              else if (map[targetX[snakeId]][targetY[snakeId]])
+              else if (map[targetX][targetY])
               {
-                if (map[targetX[snakeId]][targetY[snakeId]] < FOOD_OFFSET)
+                if (map[targetX][targetY] < FOOD_OFFSET)
                 {
-                  if (map[targetX[snakeId]][targetY[snakeId]] > 1)
+                  if (map[targetX][targetY] > 1)
                   {
-                    int targetSnakeId = (map[targetX[snakeId]][targetY[snakeId]] - 2) / MAX_WORM_LEN;
-                    int targetSegmentId = (map[targetX[snakeId]][targetY[snakeId]] - 2) % MAX_WORM_LEN;
-                    if (targetSegmentId + 1 >= playersState[targetSnakeId].length)
+                    int targetSnakeId = (map[targetX][targetY] - 2) / MAX_WORM_LEN;
+                    int targetSegmentId = (map[targetX][targetY] - 2) % MAX_WORM_LEN;
+                    if (targetSegmentId + 1 >= playersState[targetSnakeId].length && (direction == 3 || direction == 2))
                     {
                       continue;
                     }
@@ -271,12 +305,20 @@ char gameLoop(int semId, struct GameState *gameState, int map[MAP_SIZE][MAP_SIZE
                 else
                 {
                   gameState->foodOnMap--;
-                  lenIncrease[snakeId] = map[targetX[snakeId]][targetY[snakeId]] - FOOD_OFFSET;
-                  map[targetX[snakeId]][targetY[snakeId]] = 2 + MAX_WORM_LEN * i;
+                  lenIncrease[snakeId] = map[targetX][targetY] - FOOD_OFFSET;
+                  map[targetX][targetY] = 2 + MAX_WORM_LEN * snakeId;
+                  (*mapVersion)++;
+                  rowVersions[targetX]++;
                 }
               }
+              else
+              {
+                map[targetX][targetY] = 2 + MAX_WORM_LEN * snakeId;
+                (*mapVersion)++;
+                rowVersions[targetX]++;
+              }
             }
-            else if (segmentInd + 1 >= playersState->length)
+            else if (segmentInd + 1 >= playersState[snakeId].length)
             {
               map[i][j] = 0;
               (*mapVersion)++;
@@ -293,10 +335,6 @@ char gameLoop(int semId, struct GameState *gameState, int map[MAP_SIZE][MAP_SIZE
           playersState[i].length += lenIncrease[i];
           playersState[i].prevDirection = playersState[i].direction;
           playersState[i].direction = 0;
-
-          map[targetX[i]][targetY[i]] = 2 + MAX_WORM_LEN * i;
-          (*mapVersion)++;
-          rowVersions[targetX[i]]++;
         }
       }
     }

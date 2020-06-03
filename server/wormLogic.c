@@ -153,6 +153,7 @@ void *wormTask(void *targs)
             }
           }
         }
+        semUnlock(semId, MAP_SEM);
       }
       else
       {
@@ -166,7 +167,6 @@ void *wormTask(void *targs)
         semUnlock(semId, MAP_SEM);
       }
 
-      semUnlock(semId, MAP_SEM);
       semLock(semId, GAME_STATE_SEM);
       inGameState.gamePhase = gameState->gamePhase;
       inGameState.activeWorm = gameState->activeWorm;
