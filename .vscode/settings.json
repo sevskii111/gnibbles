@@ -8,6 +8,8 @@
         "optional": "c",
         "fstream": "c",
         "sstream": "c",
-        "streambuf": "c"
+        "streambuf": "c",
+        "chrono": "c",
+        "cmath": "c"
     }
 }

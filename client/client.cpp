@@ -26,7 +26,7 @@ void close();
 
 SDL_Window *gWindow = NULL;
 SDL_Renderer *gRenderer = NULL;
-TTF_Font *gBigFont, *gMidFont, *gSmallFont;
+TTF_Font *gBigFont, *gMidFont, *gSmallFont, *gFoodFont;
 LTexture *gTextTexture;
 
 bool init()
@@ -71,16 +71,14 @@ bool init()
 
 bool loadMedia()
 {
-  //Loading success flag
   bool success = true;
 
-  //Open the font
   gSmallFont = TTF_OpenFont("font.ttf", 24);
   gMidFont = TTF_OpenFont("font.ttf", 36);
   gBigFont = TTF_OpenFont("font.ttf", 60);
   if (gSmallFont == NULL || gMidFont == NULL || gBigFont == NULL)
   {
-    printf("Failed to load lazy font! SDL_ttf Error: %s\n", TTF_GetError());
+    printf("Failed to font! SDL_ttf Error: %s\n", TTF_GetError());
     success = false;
   }
 
@@ -89,17 +87,27 @@ bool loadMedia()
 
 void close()
 {
-  //Destroy window
   SDL_DestroyRenderer(gRenderer);
   SDL_DestroyWindow(gWindow);
   gWindow = NULL;
   gRenderer = NULL;
-
-  //Quit SDL subsystems
   SDL_Quit();
 }
 
-int main(int argc, char *args[])
+struct GameState
+{
+  char ind;
+  bool ready;
+  char gamePhase;
+  char prevGamePhase;
+  char mapSize;
+  char **map;
+  char scoresLen;
+  ScoreboardRecord *scores;
+  char direction;
+};
+
+main(int argc, char *args[])
 {
   if (!init() || TTF_Init() || !loadMedia())
   {
@@ -109,6 +117,7 @@ int main(int argc, char *args[])
   {
     gTextTexture = new LTexture();
     gTextTexture->init(gRenderer);
+
     struct sockaddr_in servaddr;
     int sockfd = socket(PF_INET, SOCK_STREAM, 0);
 
@@ -125,58 +134,48 @@ int main(int argc, char *args[])
       return 1;
     }
 
-    char ind;
-    read(sockfd, &ind, sizeof(ind));
+    GameState gameState;
+    gameState.ready = false;
+    gameState.gamePhase = WAITING_FOR_PLAYERS;
+    gameState.prevGamePhase = -1;
 
-    //Main loop flag
     bool quit = false;
-
-    //Event handler
     SDL_Event e;
-
-    bool ready = false;
-
-    char gamePhase = WAITING_FOR_PLAYERS;
-    int scoresCount = 0;
-    ScoreboardRecord cachedScores[PLAYERS_LIMIT];
-
-    char mapSize = -1;
-    char **mapCache;
     char textBuff[128];
-    //While application is running
+
+    if (!read(sockfd, &gameState.ind, sizeof(gameState.ind)))
+    {
+      quit = true;
+    }
     while (!quit)
     {
-      char arrowPressed = 0;
-      //Handle events on queue
       while (SDL_PollEvent(&e) != 0)
       {
-        //User requests quit
         if (e.type == SDL_QUIT)
         {
           quit = true;
         }
         else if (e.type == SDL_KEYDOWN)
         {
-          //Select surfaces based on key press
           switch (e.key.keysym.sym)
           {
           case SDLK_q:
             quit = true;
             break;
           case SDLK_SPACE:
-            ready = !ready;
+            gameState.ready = !gameState.ready;
             break;
           case SDLK_UP:
-            arrowPressed = 1;
+            gameState.direction = 1;
             break;
           case SDLK_RIGHT:
-            arrowPressed = 2;
+            gameState.direction = 2;
             break;
           case SDLK_DOWN:
-            arrowPressed = 3;
+            gameState.direction = 3;
             break;
           case SDLK_LEFT:
-            arrowPressed = 4;
+            gameState.direction = 4;
             break;
           default:
             break;
@@ -187,12 +186,23 @@ int main(int argc, char *args[])
       SDL_SetRenderDrawColor(gRenderer, DARK);
       SDL_RenderClear(gRenderer);
 
-      if (gamePhase == WAITING_FOR_PLAYERS)
+      if (gameState.gamePhase == WAITING_FOR_PLAYERS)
       {
+        if (gameState.prevGamePhase != WAITING_FOR_PLAYERS)
+        {
+          gameState.ready = false;
+          delete[] gameState.scores;
+        }
         WaitingState waitingState;
-        int n = write(sockfd, &ready, sizeof(ready));
-        n = read(sockfd, &waitingState, sizeof(waitingState));
-        gamePhase = waitingState.gamePhase;
+        if (!write(sockfd, &gameState.ready, sizeof(gameState.ready)))
+        {
+          break;
+        }
+        if (!read(sockfd, &waitingState, sizeof(waitingState)))
+        {
+          break;
+        }
+        gameState.gamePhase = waitingState.gamePhase;
 
         sprintf(textBuff, "%d of %d", waitingState.playersReady, waitingState.playersConnected);
         gTextTexture->loadFromRenderedText(textBuff, gBigFont, TWHITE);
@@ -204,7 +214,7 @@ int main(int argc, char *args[])
 
         int textOffset = 5;
         int textYPos = (SCREEN_HEIGHT + gTextTexture->getHeight()) / 2 + gTextTexture->getHeight() + textOffset;
-        if (ready)
+        if (gameState.ready)
         {
           sprintf(textBuff, "You are ready");
           gTextTexture->loadFromRenderedText(textBuff, gMidFont, TGREEN);
@@ -220,56 +230,77 @@ int main(int argc, char *args[])
         sprintf(textBuff, "Press space to change");
         gTextTexture->loadFromRenderedText(textBuff, gSmallFont, TWHITE);
         gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, textYPos + gTextTexture->getHeight() + textOffset);
+
+        gameState.prevGamePhase = WAITING_FOR_PLAYERS;
       }
-      else if (gamePhase == IN_PROGRESS)
+      else if (gameState.gamePhase == IN_PROGRESS)
       {
-        if (mapSize == -1)
+        if (gameState.prevGamePhase != IN_PROGRESS)
         {
-          read(sockfd, &mapSize, sizeof(mapSize));
-          mapCache = new char *[mapSize];
-          for (int i = 0; i < mapSize; i++)
+          if (!read(sockfd, &gameState.mapSize, sizeof(gameState.mapSize)))
           {
-            mapCache[i] = new char[mapSize];
+            break;
           }
+          gameState.map = new char *[gameState.mapSize];
+          for (int i = 0; i < gameState.mapSize; i++)
+          {
+            gameState.map[i] = new char[gameState.mapSize];
+          }
+          gFoodFont = TTF_OpenFont("font.ttf", SCREEN_WIDTH / gameState.mapSize);
         }
-        for (int i = 0; i < mapSize; i++)
+        for (int i = 0; i < gameState.mapSize; i++)
         {
           char status;
-          read(sockfd, &status, sizeof(status));
-          char currRow[mapSize];
+          if (!read(sockfd, &status, sizeof(status)))
+          {
+            quit = true;
+            break;
+          }
+          char currRow[gameState.mapSize];
           if (status)
           {
-            read(sockfd, currRow, sizeof(currRow));
-            memcpy(mapCache[i], currRow, sizeof(currRow));
+            if (!read(sockfd, currRow, sizeof(currRow)))
+            {
+              quit = true;
+              break;
+            }
+            memcpy(gameState.map[i], currRow, sizeof(currRow));
           }
           else
           {
-            memcpy(currRow, mapCache[i], sizeof(currRow));
+            memcpy(currRow, gameState.map[i], sizeof(currRow));
           }
 
-          for (int j = 0; j < mapSize; j++)
+          for (int j = 0; j < gameState.mapSize; j++)
           {
             if (currRow[j])
             {
               if (currRow[j] > 0)
               {
-                SDL_Rect fillRect = {SCREEN_WIDTH / mapSize * i, MENU_HEIGHT + GAME_HEIGHT / mapSize * j, SCREEN_WIDTH / mapSize, GAME_HEIGHT / mapSize};
+                SDL_Rect fillRect = {SCREEN_WIDTH / gameState.mapSize * i, MENU_HEIGHT + GAME_HEIGHT / gameState.mapSize * j, SCREEN_WIDTH / gameState.mapSize, GAME_HEIGHT / gameState.mapSize};
                 SDL_SetRenderDrawColor(gRenderer, MAP_COLORS[currRow[j] - 1][0], MAP_COLORS[currRow[j] - 1][1], MAP_COLORS[currRow[j] - 1][2], 0xFF);
                 SDL_RenderFillRect(gRenderer, &fillRect);
               }
               else
               {
                 sprintf(textBuff, "%d", -currRow[j]);
-                gTextTexture->loadFromRenderedText(textBuff, gMidFont, TGREEN);
-                gTextTexture->render(SCREEN_WIDTH / mapSize * i + gTextTexture->getWidth() / 2, MENU_HEIGHT + GAME_HEIGHT / mapSize * j);
+                gTextTexture->loadFromRenderedText(textBuff, gFoodFont, TGREEN);
+                gTextTexture->render(SCREEN_WIDTH / gameState.mapSize * i + gTextTexture->getWidth() / 2, MENU_HEIGHT + GAME_HEIGHT / gameState.mapSize * j);
               }
             }
           }
         }
+        if (quit)
+        {
+          break;
+        }
 
         InGameState inGameState;
-        read(sockfd, &inGameState, sizeof(inGameState));
-        gamePhase = inGameState.gamePhase;
+        if (!read(sockfd, &inGameState, sizeof(inGameState)))
+        {
+          break;
+        }
+        gameState.gamePhase = inGameState.gamePhase;
 
         int OFFSET = 10;
 
@@ -285,13 +316,15 @@ int main(int argc, char *args[])
         gTextTexture->render(OFFSET, OFFSET);
         {
           SDL_Rect fillRect = {OFFSET + (gTextTexture->getWidth() - squereSize) / 2, MENU_HEIGHT - squereSize - OFFSET, squereSize, squereSize};
-          SDL_SetRenderDrawColor(gRenderer, MAP_COLORS[ind + 1][0], MAP_COLORS[ind + 1][1], MAP_COLORS[ind + 1][2], 0xFF);
+          SDL_SetRenderDrawColor(gRenderer, MAP_COLORS[gameState.ind + 1][0], MAP_COLORS[gameState.ind + 1][1], MAP_COLORS[gameState.ind + 1][2], 0xFF);
           SDL_RenderFillRect(gRenderer, &fillRect);
         }
+
         int scoreTextPos = OFFSET * 2 + squereSize / 2 + gTextTexture->getWidth();
         sprintf(textBuff, "SCORE");
         gTextTexture->loadFromRenderedText(textBuff, gMidFont, TWHITE);
         gTextTexture->render(scoreTextPos, OFFSET);
+
         int pTextHeight = gTextTexture->getHeight();
         int pTextWidth = gTextTexture->getWidth();
         sprintf(textBuff, "%d", inGameState.score);
@@ -306,24 +339,43 @@ int main(int argc, char *args[])
           SDL_SetRenderDrawColor(gRenderer, MAP_COLORS[inGameState.activeWorm + 1][0], MAP_COLORS[inGameState.activeWorm + 1][1], MAP_COLORS[inGameState.activeWorm + 1][2], 0xFF);
           SDL_RenderFillRect(gRenderer, &fillRect);
         }
-        write(sockfd, &arrowPressed, sizeof(arrowPressed));
+        if (!write(sockfd, &gameState.direction, sizeof(gameState.direction)))
+        {
+          break;
+        }
+        gameState.direction = 0;
+
+        gameState.prevGamePhase = IN_PROGRESS;
       }
-      else if (gamePhase == SCOREBOARD)
+      else if (gameState.gamePhase == SCOREBOARD)
       {
         ScoreboardState scoreboardState;
-        read(sockfd, &scoreboardState, sizeof(ScoreboardState));
-        if (!scoresCount)
+        if (!read(sockfd, &scoreboardState, sizeof(ScoreboardState)))
         {
-          scoresCount = scoreboardState.players;
-          for (int i = 0; i < scoresCount; i++)
+          break;
+        }
+        if (gameState.prevGamePhase != SCOREBOARD)
+        {
+          for (int i = 0; i < gameState.mapSize; i++)
           {
-            read(sockfd, &cachedScores[i], sizeof(cachedScores[i]));
+            delete[] gameState.map[i];
           }
-          for (int i = 0; i < mapSize; i++)
+          delete[] gameState.map;
+
+          gameState.scoresLen = scoreboardState.players;
+          gameState.scores = new ScoreboardRecord[gameState.scoresLen];
+          for (int i = 0; i < gameState.scoresLen; i++)
           {
-            delete[] mapCache[i];
+            if (!read(sockfd, &gameState.scores[i], sizeof(gameState.scores[i])))
+            {
+              quit = true;
+              break;
+            }
           }
-          delete[] mapCache;
+          if (quit)
+          {
+            break;
+          }
         }
         int TOP_OFFSET = 100;
         int OFFSET = 20;
@@ -331,28 +383,30 @@ int main(int argc, char *args[])
         gTextTexture->loadFromRenderedText(textBuff, gBigFont, TWHITE);
         gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, TOP_OFFSET);
         int recordsStart = TOP_OFFSET + gTextTexture->getHeight() + OFFSET;
-        for (int i = 0; i < scoresCount; i++)
+        for (int i = 0; i < gameState.scoresLen; i++)
         {
-          ScoreboardRecord record = cachedScores[i];
+          ScoreboardRecord record = gameState.scores[i];
           sprintf(textBuff, "%d", record.score);
           SDL_Color color = {MAP_COLORS[record.ind + 1][0], MAP_COLORS[record.ind + 1][1], MAP_COLORS[record.ind + 1][2]};
           gTextTexture->loadFromRenderedText(textBuff, gBigFont, color);
           gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, recordsStart + i * gTextTexture->getHeight());
         }
         char sync = 1;
-        write(sockfd, &sync, sizeof(sync));
+        if (!write(sockfd, &sync, sizeof(sync)))
+        {
+          break;
+        }
+
+        gameState.prevGamePhase = SCOREBOARD;
       }
       else
       {
-        printf("WTF\n");
+        break;
       }
-      //Update screen
       SDL_RenderPresent(gRenderer);
     }
   }
 
-  //Free resources and close SDL
   close();
-
   return 0;
 }

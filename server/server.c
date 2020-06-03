@@ -67,17 +67,21 @@ int main(int argc, char *argv[])
 
   struct GameState *gameState = malloc(sizeof(struct GameState));
   struct Map *map = malloc(sizeof(struct Map));
-  struct PlayerState* playersState = malloc(sizeof(struct PlayerState) * MAX_PLAYERS);
-  resetState(gameState, playersState, map);
+  struct PlayerState *playersState = malloc(sizeof(struct PlayerState) * MAX_PLAYERS);
+  bzero(playersState, sizeof(*playersState) * MAX_PLAYERS);
 
-  if (acceptPlayers(sockfd, semId, gameState, playersState, map) != 0)
+  while (1)
   {
-    printf("Socket failed!\n");
-    return -1;
+    resetState(semId, gameState, playersState, map);
+    if (acceptPlayers(sockfd, semId, gameState, playersState, map) != 0)
+    {
+      printf("Socket failed!\n");
+      return -1;
+    }
+    printf("All players are ready!\n");
+    setupGame(semId, playersState);
+    playGame(semId, gameState, playersState, map);
+    printf("Game finished\n");
+    sleep(SCOREBOARD_TIME);
   }
-  printf("All players are ready!\n");
-  setupGame(semId, playersState);
-  playGame(semId, gameState, playersState, map);
-  printf("Game finished\n");
-  sleep(5);
 }
