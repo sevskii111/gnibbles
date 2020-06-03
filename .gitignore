@@ -7,5 +7,3 @@ client/*
 !client/*.cpp
 !client/*.h
 !client/font.ttf
-!client/include
-!client/lib
