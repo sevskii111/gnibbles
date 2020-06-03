@@ -107,7 +107,7 @@ struct GameState
   char direction;
 };
 
-main(int argc, char *args[])
+int main(int argc, char *args[])
 {
   if (!init() || TTF_Init() || !loadMedia())
   {
@@ -188,7 +188,7 @@ main(int argc, char *args[])
 
       if (gameState.gamePhase == WAITING_FOR_PLAYERS)
       {
-        if (gameState.prevGamePhase != WAITING_FOR_PLAYERS)
+        if (gameState.prevGamePhase == SCOREBOARD)
         {
           gameState.ready = false;
           delete[] gameState.scores;
@@ -235,7 +235,7 @@ main(int argc, char *args[])
       }
       else if (gameState.gamePhase == IN_PROGRESS)
       {
-        if (gameState.prevGamePhase != IN_PROGRESS)
+        if (gameState.prevGamePhase == WAITING_FOR_PLAYERS)
         {
           if (!read(sockfd, &gameState.mapSize, sizeof(gameState.mapSize)))
           {
@@ -247,6 +247,7 @@ main(int argc, char *args[])
             gameState.map[i] = new char[gameState.mapSize];
           }
           gFoodFont = TTF_OpenFont("font.ttf", SCREEN_WIDTH / gameState.mapSize);
+          gameState.direction = 0;
         }
         for (int i = 0; i < gameState.mapSize; i++)
         {
@@ -354,7 +355,8 @@ main(int argc, char *args[])
         {
           break;
         }
-        if (gameState.prevGamePhase != SCOREBOARD)
+        gameState.gamePhase = scoreboardState.gamePhase;
+        if (gameState.prevGamePhase == IN_PROGRESS)
         {
           for (int i = 0; i < gameState.mapSize; i++)
           {
