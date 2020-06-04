@@ -1,5 +1,6 @@
 #include "bot.h"
 
+#include <stdlib.h>
 #include <unistd.h>
 #include "sem.h"
 #include "types.h"
@@ -46,7 +47,7 @@ void encodeMap(char *x, char *y, int encoded[MAP_SIZE][MAP_SIZE], int map[MAP_SI
 char makeTurn(char sx, char sy, int encoded[MAP_SIZE][MAP_SIZE])
 {
   int tx = -1, ty = -1;
-  int mx = -1, my = -1;
+  int mx = 0, my = 0;
   int dx[4] = {1, 0, -1, 0};
   int dy[4] = {0, 1, 0, -1};
   int d, x, y, k;
@@ -144,7 +145,8 @@ void *botTask(void *targs)
   struct PlayerState *myState = playersState + ind;
   struct GameState *gameState = args->gameState;
   struct Map *map = args->map;
-  semLock(semId, PLAYERS_SEM_OFFSET + ind);
+  free(targs);
+
   myState->connected = 1;
   myState->ready = 1;
   semUnlock(semId, PLAYERS_SEM_OFFSET + ind);
@@ -185,6 +187,7 @@ void *botTask(void *targs)
         semLock(semId, ind + PLAYERS_SEM_OFFSET);
 
         myState->direction = makeTurn(x, y, encodedMap);
+
         semUnlock(semId, ind + PLAYERS_SEM_OFFSET);
       }
       else

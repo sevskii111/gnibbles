@@ -103,6 +103,7 @@ int acceptPlayers(int sockfd, int semId, struct GameState *gameState, struct Pla
           newWormThreadArgs->ind = (char)i;
           newWormThreadArgs->map = map;
 
+          semLock(semId, PLAYERS_SEM_OFFSET + i);
           pthread_create(&newWormThread, NULL, wormTask, (void *)newWormThreadArgs);
           break;
         }
@@ -152,6 +153,7 @@ void addBots(int count, int semId, struct GameState *gameState, struct PlayerSta
       newWormThreadArgs->ind = (char)i;
       newWormThreadArgs->map = map;
 
+      semLock(semId, PLAYERS_SEM_OFFSET + i);
       pthread_create(&newWormThread, NULL, botTask, (void *)newWormThreadArgs);
       count--;
     }
