@@ -322,7 +322,8 @@ int main(int argc, char *args[])
         }
         gameState.gamePhase = inGameState.gamePhase;
 
-        int OFFSET = 10;
+        int OFFSET_H = 10;
+        int OFFSET_W = SCREEN_WIDTH / gameState.mapSize;
 
         {
           SDL_Rect fillRect = {0, 0, SCREEN_WIDTH, MENU_HEIGHT};
@@ -332,18 +333,18 @@ int main(int argc, char *args[])
 
         sprintf(textBuff, "Color");
         gTextTexture->loadFromRenderedText(textBuff, gMidFont, TWHITE);
-        int squereSize = MENU_HEIGHT - gTextTexture->getHeight() - OFFSET * 3;
-        gTextTexture->render(OFFSET, OFFSET);
+        int squereSize = MENU_HEIGHT - gTextTexture->getHeight() - OFFSET_H * 3;
+        gTextTexture->render(OFFSET_W, OFFSET_H);
         {
-          SDL_Rect fillRect = {OFFSET + (gTextTexture->getWidth() - squereSize) / 2, MENU_HEIGHT - squereSize - OFFSET, squereSize, squereSize};
+          SDL_Rect fillRect = {OFFSET_W + (gTextTexture->getWidth() - squereSize) / 2, MENU_HEIGHT - squereSize - OFFSET_H, squereSize, squereSize};
           SDL_SetRenderDrawColor(gRenderer, MAP_COLORS[gameState.ind + 1][0], MAP_COLORS[gameState.ind + 1][1], MAP_COLORS[gameState.ind + 1][2], 0xFF);
           SDL_RenderFillRect(gRenderer, &fillRect);
         }
 
-        int scoreTextPos = OFFSET * 2 + squereSize / 2 + gTextTexture->getWidth();
+        int scoreTextPos = (SCREEN_WIDTH - gTextTexture->getWidth()) / 2;
         sprintf(textBuff, "SCORE");
         gTextTexture->loadFromRenderedText(textBuff, gMidFont, TWHITE);
-        gTextTexture->render(scoreTextPos, OFFSET);
+        gTextTexture->render(scoreTextPos, OFFSET_H);
 
         int pTextHeight = gTextTexture->getHeight();
         int pTextWidth = gTextTexture->getWidth();
@@ -353,9 +354,9 @@ int main(int argc, char *args[])
 
         sprintf(textBuff, "TURN");
         gTextTexture->loadFromRenderedText(textBuff, gMidFont, TWHITE);
-        gTextTexture->render(SCREEN_WIDTH - OFFSET - gTextTexture->getWidth(), OFFSET);
+        gTextTexture->render(SCREEN_WIDTH - OFFSET_W - gTextTexture->getWidth(), OFFSET_H);
         {
-          SDL_Rect fillRect = {SCREEN_WIDTH - (OFFSET + (gTextTexture->getWidth() + squereSize) / 2), MENU_HEIGHT - squereSize - OFFSET, squereSize, squereSize};
+          SDL_Rect fillRect = {SCREEN_WIDTH - (OFFSET_W + (gTextTexture->getWidth() + squereSize) / 2), MENU_HEIGHT - squereSize - OFFSET_H, squereSize, squereSize};
           SDL_SetRenderDrawColor(gRenderer, MAP_COLORS[inGameState.activeWorm + 1][0], MAP_COLORS[inGameState.activeWorm + 1][1], MAP_COLORS[inGameState.activeWorm + 1][2], 0xFF);
           SDL_RenderFillRect(gRenderer, &fillRect);
         }
@@ -398,8 +399,10 @@ int main(int argc, char *args[])
             break;
           }
         }
-        int TOP_OFFSET = 100;
-        int OFFSET = 20;
+
+        int TOP_OFFSET = 90;
+        int OFFSET = 10;
+
         sprintf(textBuff, "SCOREBOARD");
         gTextTexture->loadFromRenderedText(textBuff, gBigFont, TWHITE);
         gTextTexture->render((SCREEN_WIDTH - gTextTexture->getWidth()) / 2, TOP_OFFSET);
