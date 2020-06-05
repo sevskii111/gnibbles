@@ -3,7 +3,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include "stdlib.h"
-#include "stdio.h"
 
 #include "sem.h"
 #include "../shared.h"
@@ -48,7 +47,6 @@ void *wormTask(void *targs)
   struct PlayerState *myState = playersState + ind;
   struct GameState *gameState = args->gameState;
   struct Map *map = args->map;
-  semLock(semId, PLAYERS_SEM_OFFSET + ind);
   myState->connected = 1;
   myState->ready = 0;
   semUnlock(semId, PLAYERS_SEM_OFFSET + ind);
@@ -208,6 +206,8 @@ void *wormTask(void *targs)
         semUnlock(semId, ind + PLAYERS_SEM_OFFSET);
       }
     } while (inGameState.gamePhase == IN_PROGRESS);
+
+    if (inGameState.gamePhase == WAITING_FOR_PLAYERS) continue;
 
     char sync = 1;
     struct ScoreboardState scoreboardState;

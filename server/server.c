@@ -70,7 +70,6 @@ int main(int argc, char *argv[])
   struct Map *map = malloc(sizeof(struct Map));
   struct PlayerState *playersState = malloc(sizeof(struct PlayerState) * MAX_PLAYERS);
   bzero(playersState, sizeof(*playersState) * MAX_PLAYERS);
-
   while (1)
   {
     resetState(semId, gameState, playersState, map);
@@ -79,7 +78,7 @@ int main(int argc, char *argv[])
       printf("Socket failed!\n");
       return -1;
     }
-    addBots(99, semId, gameState, playersState, map);
+    addBots(BOTS, semId, gameState, playersState, map);
     printf("All players are ready!\n");
     setupGame(semId, playersState);
     playGame(semId, gameState, playersState, map);
