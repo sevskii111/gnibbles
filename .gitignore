@@ -2,8 +2,10 @@ server/*
 !server/Makefile
 !server/*.c
 !server/*.h
+!server/*.md
 client/*
 !client/Makefile
 !client/*.cpp
 !client/*.h
+!client/*.md
 !client/font.ttf
