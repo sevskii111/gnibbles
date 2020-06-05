@@ -138,6 +138,8 @@ int main(int argc, char *args[])
     gameState.ready = false;
     gameState.gamePhase = WAITING_FOR_PLAYERS;
     gameState.prevGamePhase = -1;
+    gameState.mapSize = 0;
+    gameState.scoresLen = 0;
 
     bool quit = false;
     SDL_Event e;
@@ -201,11 +203,16 @@ int main(int argc, char *args[])
 
       if (gameState.gamePhase == WAITING_FOR_PLAYERS)
       {
-        if (gameState.prevGamePhase == SCOREBOARD)
+        if (gameState.prevGamePhase != WAITING_FOR_PLAYERS)
         {
           gameState.ready = false;
-          delete[] gameState.scores;
+          if (gameState.scoresLen > 0)
+          {
+            delete[] gameState.scores;
+            gameState.scoresLen = 0;
+          }
         }
+
         WaitingState waitingState;
         if (!write(sockfd, &gameState.ready, sizeof(gameState.ready)))
         {
@@ -248,7 +255,7 @@ int main(int argc, char *args[])
       }
       else if (gameState.gamePhase == IN_PROGRESS)
       {
-        if (gameState.prevGamePhase == WAITING_FOR_PLAYERS)
+        if (gameState.prevGamePhase != IN_PROGRESS)
         {
           if (!read(sockfd, &gameState.mapSize, sizeof(gameState.mapSize)))
           {
@@ -383,6 +390,7 @@ int main(int argc, char *args[])
             delete[] gameState.map[i];
           }
           delete[] gameState.map;
+          gameState.mapSize = 0;
 
           gameState.scoresLen = scoreboardState.players;
           gameState.scores = new ScoreboardRecord[gameState.scoresLen];
@@ -436,8 +444,21 @@ int main(int argc, char *args[])
       startTime = endTime;
       endTime = SDL_GetTicks();
     }
-  }
 
+    if (gameState.mapSize > 0)
+    {
+      for (int i = 0; i < gameState.mapSize; i++)
+      {
+        delete[] gameState.map[i];
+      }
+      delete[] gameState.map;
+    }
+
+    if (gameState.scoresLen > 0)
+    {
+      delete[] gameState.scores;
+    }
+  }
   close();
   return 0;
 }
