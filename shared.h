@@ -1,8 +1,5 @@
 #pragma once
 
-#define PLAYERS_LIMIT 128
-#define MAP_SIZE_LIMIT 128
-
 struct WaitingState
 {
   char gamePhase;

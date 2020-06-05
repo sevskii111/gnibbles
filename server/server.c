@@ -70,7 +70,6 @@ int main(int argc, char *argv[])
   struct Map *map = malloc(sizeof(struct Map));
   struct PlayerState *playersState = malloc(sizeof(struct PlayerState) * MAX_PLAYERS);
   bzero(playersState, sizeof(*playersState) * MAX_PLAYERS);
-
   while (1)
   {
     resetState(semId, gameState, playersState, map);

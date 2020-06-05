@@ -3,7 +3,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include "stdlib.h"
-#include "stdio.h"
 
 #include "sem.h"
 #include "../shared.h"
@@ -208,7 +207,8 @@ void *wormTask(void *targs)
       }
     } while (inGameState.gamePhase == IN_PROGRESS);
 
-    printf("WORM scoreboard\n");
+    if (inGameState.gamePhase == WAITING_FOR_PLAYERS) continue;
+
     char sync = 1;
     struct ScoreboardState scoreboardState;
     semLock(semId, GAME_STATE_SEM);

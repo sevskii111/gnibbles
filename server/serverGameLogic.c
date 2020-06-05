@@ -58,6 +58,7 @@ void resetState(int semId, struct GameState *gameState, struct PlayerState *play
   gameState->gamePhase = WAITING_FOR_PLAYERS;
   gameState->activeWorm = 0;
   gameState->foodOnMap = 0;
+
   for (int i = 0; i < MAX_PLAYERS; i++)
   {
     playersState[i].direction = 0;
@@ -65,7 +66,9 @@ void resetState(int semId, struct GameState *gameState, struct PlayerState *play
     playersState[i].length = 0;
     playersState[i].ready = 0;
   }
-  bzero(map->rowVersions, sizeof(*map->rowVersions) * MAX_PLAYERS);
+
+  bzero(map->rowVersions, sizeof(*map->rowVersions) * MAP_SIZE);
+
   map->mapVersion = 0;
   loadMap(map->field);
 
@@ -181,7 +184,7 @@ void setupGame(int semId, struct PlayerState *playersState)
 
 char randFood()
 {
-  int r = rand() % 512;
+  int r = rand() % 512 + 1;
   int n = 9;
   while (r > 0)
   {
@@ -199,19 +202,6 @@ char gameLoop(int semId, struct GameState *gameState, int map[MAP_SIZE][MAP_SIZE
   }
   semLock(semId, MAP_SEM);
   semLock(semId, GAME_STATE_SEM);
-
-  if (playersState[gameState->activeWorm].direction || !playersState[gameState->activeWorm].ready)
-  {
-    for (int i = 1; i <= MAX_PLAYERS; i++)
-    {
-      int ind = (gameState->activeWorm + i) % MAX_PLAYERS;
-      if (playersState[ind].ready)
-      {
-        gameState->activeWorm = ind;
-        break;
-      }
-    }
-  }
 
   char allPlayersMadeTurn = 1;
   char playersOnField = 0;
@@ -297,6 +287,9 @@ char gameLoop(int semId, struct GameState *gameState, int map[MAP_SIZE][MAP_SIZE
                     int targetSegmentId = (map[targetX][targetY] - 2) % MAX_WORM_LEN;
                     if (targetSegmentId + 1 >= playersState[targetSnakeId].length && (direction == 3 || direction == 2))
                     {
+                      map[targetX][targetY] = 2 + MAX_WORM_LEN * snakeId;
+                      (*mapVersion)++;
+                      rowVersions[targetX]++;
                       continue;
                     }
                   }
@@ -339,14 +332,17 @@ char gameLoop(int semId, struct GameState *gameState, int map[MAP_SIZE][MAP_SIZE
           playersState[i].direction = 0;
         }
       }
+    }
 
-      for (int i = 0; i < MAX_PLAYERS; i++)
+    if (allPlayersMadeTurn || playersState[gameState->activeWorm].direction || !playersState[gameState->activeWorm].ready)
+    {
+      for (int i = 1; i <= MAX_PLAYERS; i++)
       {
-        if (!madeMove[i] && playersState[i].ready)
+        int ind = (gameState->activeWorm + i) % MAX_PLAYERS;
+        if (playersState[ind].ready && !playersState[ind].direction)
         {
-          playersState[i].ready = 0;
-          toRemove[toRemoveC] = i;
-          toRemoveC++;
+          gameState->activeWorm = ind;
+          break;
         }
       }
     }
