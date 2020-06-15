@@ -8,4 +8,5 @@ client/*
 !client/*.cpp
 !client/*.h
 !client/*.md
+!client/*.txt
 !client/font.ttf
